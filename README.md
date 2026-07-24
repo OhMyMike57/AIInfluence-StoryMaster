@@ -68,3 +68,11 @@ C# / .NET Framework 4.7.2 · Harmony · MCM (optional soft dependency)
 
 - Story Master — Cartoonist57
 - AI Influence (the parent mod) — MFiveM5
+
+## License
+
+**All rights reserved.** This source is published so that it can be read,
+audited and built — including for the Nexus Mods file review. It is not released
+under an open-source license: please do not redistribute it, or publish derived
+or repackaged versions, without permission. Feel free to open an issue or
+contact me if you would like to use any part of it.
