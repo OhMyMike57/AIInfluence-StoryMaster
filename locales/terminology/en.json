@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "language": "en",
+  "characters": {
+    "main_hero": "Player"
+  },
+  "kingdoms": {
+    "aserai": "Sultanate of the Aserai",
+    "battania": "High Kingdom of Battania",
+    "empire": "Northern Empire",
+    "empire_s": "Southern Empire",
+    "empire_w": "Western Empire",
+    "khuzait": "Khuzait Khanate",
+    "nord": "Kingdom of the Nordvyg",
+    "sturgia": "Principality of Sturgia",
+    "vlandia": "Kingdom of Vlandia"
+  },
+  "cultures": {
+    "aserai": "Aserai",
+    "battania": "Battania",
+    "empire": "Empire",
+    "khuzait": "Khuzait",
+    "nord": "Nord",
+    "sturgia": "Sturgia",
+    "vlandia": "Vlandia"
+  }
+}

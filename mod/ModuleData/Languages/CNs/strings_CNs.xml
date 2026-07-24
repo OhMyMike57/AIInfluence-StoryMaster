@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" type="string">
+  <tags>
+    <tag language="简体中文" />
+  </tags>
+  <strings>
+    <string id="StoryMaster_Name" text="AI效应：故事大师" />
+    <string id="StoryMaster_Grp_Export" text="资料库" />
+    <string id="StoryMaster_Grp_Status" text="状态检测" />
+    <string id="StoryMaster_ExportNow" text="更新" />
+    <string id="StoryMaster_AutoExport" text="自动更新资料库" />
+    <string id="StoryMaster_AutoExport_H" text="每次载入战役时自动更新一次资料库（英雄、氏族、王国、定居点、物品及其属性，并含世界快照）供外部编辑器使用；关闭则只用下方按钮手动更新。[ 默认：开 ]" />
+    <string id="StoryMaster_ExportBtn" text="立即更新资料库" />
+    <string id="StoryMaster_ExportBtn_H" text="立即更新一次资料库（需在战役载入中才有效）。" />
+    <string id="StoryMaster_Heartbeat" text="写入游戏状态心跳" />
+    <string id="StoryMaster_Heartbeat_H" text="写入小型心跳文件（约每 3 秒，性能可忽略），让外部编辑器精准分辨主菜单／战役中／暂停。[ 默认：开 ]" />
+    <string id="StoryMaster_Msg_NoCampaign" text="故事大师：需先加载战役" />
+    <string id="StoryMaster_Msg_Updated" text="故事大师：已更新资料库" />
+    <string id="StoryMaster_Msg_Failed" text="故事大师：更新失败，详见 log" />
+    <string id="StoryMaster_AutoEnc" text="自动同步百科描述" />
+    <string id="StoryMaster_AutoEnc_H" text="载入战役时，依角色档的人设描述更新至角色的百科页面，让你在编辑器中的修改能直接显示在游戏中。只读取上次同步后有变更过的角色。[ 默认：开 ]" />
+    <string id="StoryMaster_EncBtn" text="立即同步百科描述" />
+    <string id="StoryMaster_EncNow" text="同步" />
+    <string id="StoryMaster_EncBtn_H" text="立即刷新所有角色的百科描述（需在战役载入中才有效）。" />
+    <string id="StoryMaster_Msg_EncSynced" text="故事大师：已同步百科描述（{COUNT} 位角色）" />
+    <string id="StoryMaster_Grp_Editor" text="编辑器" />
+    <string id="StoryMaster_OpenEditor" text="打开编辑器" />
+    <string id="StoryMaster_OpenEditor_C" text="打开" />
+    <string id="StoryMaster_OpenEditor_H" text="启动故事大师编辑器（位于本模组的 Tool 文件夹）。编辑器目前为桌面应用程序，打开后会是一个独立的新窗口，你需要切换窗口才能开始操作。战役数据建议在主菜单编辑。" />
+    <string id="StoryMaster_Msg_NoEditor" text="故事大师：找不到编辑器（模组内缺少 Tool 文件夹）" />
+    <string id="StoryMaster_Msg_EditorOpened" text="故事大师：已打开编辑器" />
+    <string id="StoryMaster_Enc_Desc" text="— 描述 —" />
+    <string id="StoryMaster_Enc_Backstory" text="— 背景 —" />
+    <string id="StoryMaster_Enc_Personality" text="— 性格 —" />
+  </strings>
+</base>

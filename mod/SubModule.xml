@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Module>
+  <Name value="AI Influence: Story Master"/>
+  <Id value="AIInfluence_StoryMaster"/>
+  <Version value="v1.2.0"/>
+  <SingleplayerModule value="true"/>
+  <MultiplayerModule value="false"/>
+  <Official value="false"/>
+  <DependedModules>
+    <DependedModule Id="Native" DependentVersion="e1.0.0" Optional="false"/>
+    <DependedModule Id="SandBoxCore" DependentVersion="e1.0.0" Optional="false"/>
+    <DependedModule Id="Sandbox" DependentVersion="e1.0.0" Optional="false"/>
+    <DependedModule Id="StoryMode" DependentVersion="e1.0.0" Optional="false"/>
+    <DependedModule Id="Bannerlord.Harmony" DependentVersion="v2.0.0" Optional="false"/>
+    <!-- MCM settings menu — optional. Load AFTER it so its scanner sees our
+         settings; absence is handled gracefully (export still runs on defaults). -->
+    <DependedModule Id="Bannerlord.MBOptionScreen" DependentVersion="v5.0.0" Optional="true"/>
+    <!-- Load AFTER AI Influence when present (we read its save_data folder). -->
+    <DependedModule Id="AIInfluence" DependentVersion="v5.0.0" Optional="true"/>
+  </DependedModules>
+  <SubModules>
+    <SubModule>
+      <Name value="AIInfluence_StoryMaster"/>
+      <DLLName value="AIInfluence_StoryMaster.dll"/>
+      <SubModuleClassType value="AIInfluenceStoryMaster.SubModule"/>
+      <Tags>
+        <Tag key="DedicatedServerType" value="none"/>
+        <Tag key="IsNoRenderModeElement" value="false"/>
+      </Tags>
+    </SubModule>
+  </SubModules>
+</Module>

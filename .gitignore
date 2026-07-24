@@ -1,0 +1,38 @@
+# ── Build output ────────────────────────────────────────────────────────
+build/
+dist/
+*.zip
+
+# C# module build intermediates (the DLL is rebuilt from src/, not tracked)
+mod/obj/
+mod/bin/
+
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ── Local user data — NOT part of the source ────────────────────────────
+# Campaign backups (contain the developer's own save data), runtime logs,
+# machine-specific settings and cached terminology.
+backups/
+logs/
+config/
+data_location.txt
+
+# ── Internal development documents ──────────────────────────────────────
+# Chinese-language planning docs, release-article drafts and mod research
+# notes. Not required to build the application and not part of the product.
+docs/
+
+# Local AI-assistant configuration (not part of the product)
+.claude/
+
+# ── Editor / OS ─────────────────────────────────────────────────────────
+.vs/
+.idea/
+*.user
+Thumbs.db
+desktop.ini

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "language": "zh_CN",
+  "characters": {
+    "main_hero": "玩家"
+  },
+  "kingdoms": {
+    "aserai": "阿塞莱苏丹国",
+    "battania": "巴旦尼亚至高王国",
+    "empire": "北帝国",
+    "empire_s": "南帝国",
+    "empire_w": "西帝国",
+    "khuzait": "库赛特汗国",
+    "nord": "诺德维格王国",
+    "sturgia": "斯特吉亚大公国",
+    "vlandia": "瓦兰迪亚王国"
+  },
+  "cultures": {
+    "aserai": "阿塞莱",
+    "battania": "巴旦尼亚",
+    "empire": "帝国",
+    "khuzait": "库赛特",
+    "nord": "诺德",
+    "sturgia": "斯特吉亚",
+    "vlandia": "瓦兰迪亚"
+  }
+}
