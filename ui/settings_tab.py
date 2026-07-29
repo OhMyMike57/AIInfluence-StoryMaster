@@ -293,12 +293,27 @@ def build_settings_tab(app, notebook: ttk.Notebook) -> None:
     ttk.Label(snap_row, text=tr("存檔備份處理:"), width=14).pack(side=tk.LEFT)
     app.snapshot_policy_display_var = tk.StringVar(
         value=svc_snapshot.policy_label(app.settings.get("snapshot_policy")))
-    ttk.Combobox(snap_row, textvariable=app.snapshot_policy_display_var,
-                 values=svc_snapshot.policy_display_options(),
-                 state="readonly", width=20).pack(side=tk.LEFT, padx=(0, 8))
+    snap_combo = ttk.Combobox(snap_row, textvariable=app.snapshot_policy_display_var,
+                              values=svc_snapshot.policy_display_options(),
+                              state="readonly", width=24)
+    snap_combo.pack(side=tk.LEFT, padx=(0, 8))
     ttk.Button(snap_row, text=tr("ⓘ 說明"),
                command=lambda: _open_snapshot_help(app),
                style="secondary.TButton").pack(side=tk.LEFT)
+
+    # One-line consequence of the selected policy, refreshed on change: the three
+    # options differ in whether edits stick and whether the mod's rollback
+    # survives, which the labels alone cannot convey.
+    snap_hint = ttk.Label(pref_frame, foreground=tcol("#6B5B3E"), justify="left",
+                          wraplength=560)
+    snap_hint.pack(fill=tk.X, padx=(122, 10), pady=(0, 4), anchor="w")
+
+    def _sync_snap_hint(*_a) -> None:
+        pid = svc_snapshot.policy_from_label(app.snapshot_policy_display_var.get())
+        snap_hint.config(text=svc_snapshot.policy_hint(pid))
+
+    snap_combo.bind("<<ComboboxSelected>>", _sync_snap_hint)
+    _sync_snap_hint()
 
     # Theme has its own immediate-apply button and is intentionally NOT part of
     # the preference save/cancel change-tracking.

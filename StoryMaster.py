@@ -48,6 +48,7 @@ from services.settings_service import (
 from i18n import set_lang, tr
 from services.backup_service import (
     backup_campaign_dir,
+    backup_snapshots,
     backup_tool_config,
 )
 from services.world_service import (
@@ -5052,12 +5053,30 @@ class AIInfluenceStoryToolsApp:
         a confirm dialog — because a snapshot left behind silently reverts those
         edits the next time the player loads the game.
 
+        Three policies (設定 → 偏好設定 → 存檔備份處理):
+        ``keep`` leaves them alone, ``backup_then_clear`` copies them into the
+        Backup Center first, ``auto_clear`` (default) just removes them.
+
         Cheap to call repeatedly: once purged there is nothing left to find, so
         later writes in the same session cost one directory listing.
         """
         policy = svc_snapshot.normalize_policy(self.settings.get("snapshot_policy"))
-        if policy != svc_snapshot.POLICY_AUTO_CLEAR:
+        if not svc_snapshot.clears_snapshots(policy):
+            self._warn_snapshots_kept_once(campaign_dir)
             return
+
+        # Copy first when asked — a failed copy must not lead to a delete, or the
+        # player loses the rollback they explicitly opted to keep.
+        if svc_snapshot.backs_up_first(policy):
+            try:
+                saved = backup_snapshots(campaign_dir, Path(self.backup_dir_var.get()))
+            except Exception as exc:
+                self.log(tr("備份戰役自動備份失敗，已保留未清除：{v0}").format(v0=str(exc)), "ERROR")
+                return
+            if saved is not None:
+                self.log(tr("已將 save_snapshots 備份至：{v0}").format(v0=str(saved)), "INFO")
+                self.refresh_backup_center()
+
         removed, errors = svc_snapshot.purge_snapshots(campaign_dir)
         if removed:
             self.log(
@@ -5065,6 +5084,28 @@ class AIInfluenceStoryToolsApp:
                 .format(n=removed), "INFO")
         for err in errors:
             self.log(tr("清除戰役自動備份失敗：{v0}").format(v0=err), "ERROR")
+
+    def _warn_snapshots_kept_once(self, campaign_dir: Path) -> None:
+        """Under the ``keep`` policy, say once per campaign that edits may revert.
+
+        Once per campaign per session: this runs on *every* write, and a warning
+        on each keystroke-sized save would be worse than the risk it describes.
+        """
+        try:
+            if not svc_snapshot.has_snapshots(campaign_dir):
+                return
+            seen = getattr(self, "_snapshot_keep_warned", None)
+            if seen is None:
+                seen = self._snapshot_keep_warned = set()
+            key = str(campaign_dir)
+            if key in seen:
+                return
+            seen.add(key)
+            self.log(
+                tr("此戰役仍有 save_snapshots（依偏好設定保留）；在主選單所做的編輯，"
+                   "可能在載入遊戲時被還原"), "WARNING")
+        except Exception:
+            pass   # a warning must never break a successful write
 
     @staticmethod
     def _conversation_history_changed(path: Path, data: dict) -> bool:

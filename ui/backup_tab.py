@@ -1,15 +1,17 @@
 """Backup Center tab.
 
 Lists every backup the tool knows about (campaign saves, cleared-database
-snapshots, and tool-config backups) in one searchable table, and lets the user
-open / rename / annotate / delete each one. All data logic lives in
-``services.backup_service``; this module is the view + interaction layer.
+snapshots, tool-config backups and the mod's save_snapshots) in one searchable
+table, and lets the user open / rename / annotate / restore / delete each one.
+All data logic lives in ``services.backup_service``; this module is the view +
+interaction layer.
 """
 from __future__ import annotations
 
 import os
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 from typing import Optional
 
@@ -17,17 +19,20 @@ from i18n import tr
 from ui.theme import tcol
 from ui import msgbox as messagebox
 from services import backup_service as bks
+from dialogs.restore_confirm_dialog import open_restore_confirm_dialog
 
 
 # Type-filter dropdown: display label → kind ("" = all).
 def _filter_options():
-    return [(tr("全部類型"), ""), (tr("戰役備份"), "campaign"),
-            (tr("資料庫備份"), "db"), (tr("工具設定"), "config")]
+    return [(tr("全部類型"), ""), (tr("戰役備份"), bks.KIND_CAMPAIGN),
+            (tr("資料庫備份"), bks.KIND_DB), (tr("工具設定"), bks.KIND_CONFIG),
+            (tr("存檔備份"), bks.KIND_SNAPSHOT)]
 
 
 def _kind_col_label(kind: str) -> str:
-    return {"campaign": tr("戰役"), "db": tr("資料庫"),
-            "config": tr("工具設定")}.get(kind, kind)
+    return {bks.KIND_CAMPAIGN: tr("戰役"), bks.KIND_DB: tr("資料庫"),
+            bks.KIND_CONFIG: tr("工具設定"),
+            bks.KIND_SNAPSHOT: tr("存檔備份")}.get(kind, kind)
 
 
 def _fmt_size(n: Optional[int]) -> str:
@@ -92,6 +97,8 @@ def build_backup_tab(app, notebook: ttk.Notebook) -> None:
                style="secondary.TButton").pack(side=tk.LEFT, padx=2)
     ttk.Button(act, text=tr("🏷 編輯備註"), command=lambda: _edit_note(app),
                style="secondary.TButton").pack(side=tk.LEFT, padx=2)
+    ttk.Button(act, text=tr("♻ 還原"), command=lambda: _restore(app),
+               style="danger.TButton").pack(side=tk.LEFT, padx=(12, 2))
     ttk.Button(act, text=tr("🗑 刪除"), command=lambda: _delete(app),
                style="danger.TButton").pack(side=tk.LEFT, padx=2)
 
@@ -126,7 +133,10 @@ def build_backup_tab(app, notebook: ttk.Notebook) -> None:
     menu.add_command(label=tr("✏ 重新命名"), command=lambda: _rename(app))
     menu.add_command(label=tr("🏷 編輯備註"), command=lambda: _edit_note(app))
     menu.add_separator()
-    menu.add_command(label=tr("🗑 刪除"), command=lambda: _delete(app))
+    menu.add_command(label=tr("♻ 還原"), command=lambda: _restore(app),
+                     foreground=tcol("#C0392B"))
+    menu.add_command(label=tr("🗑 刪除"), command=lambda: _delete(app),
+                     foreground=tcol("#C0392B"))
     app._backup_menu = menu
 
     def _popup(event):
@@ -326,6 +336,100 @@ def _edit_note(app) -> None:
     bks.set_note(app.backup_dir_var.get(), e, note)
     app.log(tr("備註已更新"), "SUCCESS")
     refresh_backup_center(app)
+
+
+def _restore(app) -> None:
+    """Put a backup back over its live target, after showing exactly what changes.
+
+    Ordering matters here: the game lock comes first (restoring under a loaded
+    campaign would be overwritten by the mod anyway), then the plan, then the
+    confirmation. Nothing is written until the user has seen the delete count.
+    """
+    e = _selected_entry(app)
+    if e is None:
+        return
+
+    # AI Influence rewrites the whole campaign folder from memory while a
+    # campaign is loaded, so a restore now would simply be undone on the next
+    # autosave — and the user would think the backup was faulty.
+    if app._confirm_if_game_running(tr("還原備份")):
+        return
+
+    try:
+        target = bks.resolve_restore_target(
+            e,
+            save_data_dir=getattr(app, "save_data_dir", None),
+            config_dir=getattr(app, "config_dir", None),
+        )
+    except bks.RestoreError as exc:
+        messagebox.showwarning(tr("還原備份"), str(exc), parent=app.root)
+        return
+
+    try:
+        plan = bks.plan_restore(e, target)
+    except bks.RestoreError as exc:
+        messagebox.showerror(tr("還原備份"), str(exc), parent=app.root)
+        return
+
+    if not plan.total_changes:
+        messagebox.showinfo(
+            tr("還原備份"),
+            tr("目前的內容已經和這份備份相同，不需要還原。"), parent=app.root)
+        return
+
+    if not open_restore_confirm_dialog(app, plan):
+        app.log(tr("已取消還原備份"), "INFO")
+        return
+
+    report = bks.restore_backup(e, target, backup_base=app.backup_dir_var.get(),
+                                plan=plan)
+    for err in report.errors:
+        app.log(tr("還原備份：{v0}").format(v0=err), "ERROR")
+
+    if not report.ok:
+        messagebox.showerror(
+            tr("還原備份"),
+            tr("還原未完成，請查看日誌分頁。\n\n已寫入 {w} 個檔案、移除 {r} 個。")
+            .format(w=report.written, r=report.removed), parent=app.root)
+        refresh_backup_center(app)
+        return
+
+    app.log(tr("已從備份「{name}」還原：寫入 {w} 個檔案、移除 {r} 個")
+            .format(name=e.name, w=report.written, r=report.removed), "SUCCESS")
+
+    tail = ""
+    if report.safety_backup:
+        tail = tr("\n\n還原前的內容已備份為：\n{v0}").format(
+            v0=Path(report.safety_backup).name)
+    if e.kind == bks.KIND_CONFIG:
+        tail += tr("\n\n工具設定已還原，請重新啟動編輯器讓設定生效。")
+    else:
+        tail += tr("\n\n請重新載入戰役以看到還原後的內容。")
+    messagebox.showinfo(
+        tr("還原完成"),
+        tr("已還原 {w} 個檔案、移除 {r} 個。").format(w=report.written, r=report.removed) + tail,
+        parent=app.root)
+
+    refresh_backup_center(app)
+    _reload_campaign_after_restore(app, e)
+
+
+def _reload_campaign_after_restore(app, entry) -> None:
+    """Reload the open campaign when a restore changed the data under it.
+
+    Without this the roster, world data and open character panel keep showing
+    the pre-restore state, which reads as "the restore did nothing".
+    ``ask_dirty=False``: the restore already replaced what was on disk, so
+    prompting to keep in-memory edits would offer to re-apply stale data.
+    """
+    if entry.kind == bks.KIND_CONFIG:
+        return                          # needs a restart; nothing to reload live
+    try:
+        current = getattr(app, "campaign_dir", None)
+        if current is not None and current.name == (entry.campaign_id or ""):
+            app.refresh(ask_dirty=False)
+    except Exception as exc:
+        app.log(tr("還原後重新載入戰役失敗：{v0}").format(v0=str(exc)), "WARNING")
 
 
 def _delete(app) -> None:

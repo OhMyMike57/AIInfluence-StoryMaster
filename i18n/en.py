@@ -2288,4 +2288,106 @@ STRINGS = {
         'Preview',
     '（這是預覽區的示意文字）':
         '(sample text for the preview pane)',
+
+    # ── v1.2.1 B：快照政策／備份還原 ──────────────────────────
+    '\n\n工具設定已還原，請重新啟動編輯器讓設定生效。':
+        '\n\nTool settings restored. Restart the editor for them to take effect.',
+    '\n\n請重新載入戰役以看到還原後的內容。':
+        '\n\nReload the campaign to see the restored content.',
+    '\n\n還原前的內容已備份為：\n{v0}':
+        '\n\nThe previous content was backed up as:\n{v0}',
+    '    …另外還有 {n} 個\n':
+        '    …and {n} more\n',
+    '♻ 還原':
+        '♻ Restore',
+    '不支援的備份類型':
+        'Unsupported backup type',
+    '保持不變 {n} 個檔案':
+        'leave {n} file(s) unchanged',
+    '停用：保留存檔備份':
+        'Disabled: keep save backups',
+    '備份名稱':
+        'Backup name',
+    '備份戰役自動備份失敗，已保留未清除：{v0}':
+        'Could not back up the save snapshots, so they were left in place: {v0}',
+    '備份是空的，沒有可還原的檔案':
+        'The backup is empty — there is nothing to restore',
+    '備份時間':
+        'Backed up',
+    '備份資料夾不存在或已被移除':
+        'The backup folder no longer exists',
+    '先備份再清除（可還原）':
+        'Back up first, then clear (restorable)',
+    '刪除 {n} 個檔案（備份中沒有的檔案會被移除）':
+        'delete {n} file(s) — anything not in the backup is removed',
+    '刪除前先把 save_snapshots 複製到備份中心，日後可從備份中心還原回舊的時間點。':
+        'Copies save_snapshots into the Backup Center before deleting them, so you can restore an earlier point in time later.',
+    '即將把這份備份還原回原本的位置：':
+        'This backup is about to be restored to its original location:',
+    '存檔備份':
+        'Save backup',
+    '存檔備份（save_snapshots）':
+        'Save backup (save_snapshots)',
+    '完全不動 save_snapshots，保留遊戲的逐存檔回溯能力。注意：在主選單所做的編輯，可能在載入遊戲時被還原。':
+        "Leaves save_snapshots completely alone, keeping the game's per-save rollback. Note: edits made at the main menu may be reverted when you load.",
+    '寫入戰役後刪除該戰役的 save_snapshots，確保編輯不會在載入時被還原。':
+        "Deletes that campaign's save_snapshots after a write, so your edits are not reverted on load.",
+    '將刪除：':
+        'Will delete:',
+    '將新增：':
+        'Will add:',
+    '將覆寫：':
+        'Will overwrite:',
+    '尚未設定 AI 效應的 save_data 資料夾':
+        'The AI Influence save_data folder is not set',
+    '工具設定備份':
+        'Tool settings backup',
+    '已取消還原備份':
+        'Restore cancelled',
+    '已將 save_snapshots 備份至：{v0}':
+        'save_snapshots backed up to: {v0}',
+    '已從備份「{name}」還原：寫入 {w} 個檔案、移除 {r} 個':
+        'Restored from backup "{name}": {w} file(s) written, {r} removed',
+    '已還原 {w} 個檔案、移除 {r} 個。':
+        'Restored {w} file(s) and removed {r}.',
+    '找不到工具設定資料夾':
+        'Tool settings folder not found',
+    '新增 {n} 個檔案':
+        'add {n} file(s)',
+    '此戰役仍有 save_snapshots（依偏好設定保留）；在主選單所做的編輯，可能在載入遊戲時被還原':
+        'This campaign still has save_snapshots (kept per your preference); edits made at the main menu may be reverted when the game loads',
+    '無法建立還原目標資料夾：{v0}':
+        'Could not create the restore target folder: {v0}',
+    '無法從備份名稱判斷所屬戰役':
+        'Cannot tell which campaign this backup belongs to',
+    '目前的內容已經和這份備份相同，不需要還原。':
+        'The current content already matches this backup — nothing to restore.',
+    '確認還原':
+        'Restore',
+    '覆寫 {n} 個檔案':
+        'overwrite {n} file(s)',
+    '這次還原會：':
+        'This restore will:',
+    '還原備份':
+        'Restore backup',
+    '還原備份：{v0}':
+        'Restore: {v0}',
+    '還原前會自動把目前的內容備份一份到備份中心，所以這次還原本身也可以再還原回來。':
+        'The current content is backed up to the Backup Center first, so this restore can itself be undone.',
+    '還原前的安全備份失敗，已中止：{v0}':
+        'The safety backup failed, so the restore was aborted: {v0}',
+    '還原完成':
+        'Restore complete',
+    '還原後重新載入戰役失敗：{v0}':
+        'Could not reload the campaign after restoring: {v0}',
+    '還原未完成，請查看日誌分頁。\n\n已寫入 {w} 個檔案、移除 {r} 個。':
+        'The restore did not finish — see the Log tab.\n\n{w} file(s) written, {r} removed.',
+    '還原目標':
+        'Restore to',
+    '還原目標不可位於備份資料夾內':
+        'The restore target cannot be inside the backup folder',
+    '還原目標不可包含備份資料夾':
+        'The restore target cannot contain the backup folder',
+    '還原目標目前不存在，將會重新建立。':
+        'The restore target does not exist yet and will be created.',
 }

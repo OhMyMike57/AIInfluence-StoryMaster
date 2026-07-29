@@ -22,6 +22,11 @@ not an exotic condition for the mod.
 
 Cost: the player loses the mod's ability to roll its data back when loading an
 *older* save slot — i.e. behaviour returns to AI Influence 5.x.
+
+That cost is why the handling is a *policy* rather than a fixed behaviour: since
+1.2.1 the player can keep the rollback (``keep``), or have the snapshots copied
+into the Backup Center before they are removed (``backup_then_clear``) so the
+rollback survives as something ``backup_service.restore_backup`` can put back.
 """
 from __future__ import annotations
 
@@ -36,20 +41,39 @@ SNAPSHOT_META_NAME = "snapshot_meta.json"
 
 # ── Handling policy (設定 → 偏好設定 → 存檔備份處理) ──────────────────────
 #
-# Only one policy ships today; the setting exists as a dropdown because a second
-# one is already planned (writing edits into the newest snapshot instead of
-# deleting it — see PLAN_6X_ADAPTATION Backlog B-1).  Keep the stored value a
-# stable identifier and the label a translated string, so adding a policy later
-# never breaks saved settings.
+# Stored values are stable identifiers and labels are translated strings, so
+# adding a policy later never breaks saved settings.
+#
+#   auto_clear         delete the snapshots (default; edits always stick)
+#   backup_then_clear  copy them into the Backup Center first, then delete —
+#                      keeps the mod's per-slot rollback available as a restorable
+#                      backup instead of losing it outright
+#   keep               do nothing; the player keeps the mod's rollback behaviour
+#                      and accepts that main-menu edits may be reverted on load
 POLICY_AUTO_CLEAR = "auto_clear"
+POLICY_BACKUP_THEN_CLEAR = "backup_then_clear"
+POLICY_KEEP = "keep"
 DEFAULT_POLICY = POLICY_AUTO_CLEAR
 
-POLICY_IDS = (POLICY_AUTO_CLEAR,)
+POLICY_IDS = (POLICY_AUTO_CLEAR, POLICY_BACKUP_THEN_CLEAR, POLICY_KEEP)
+
+#: Policies under which the tool removes the snapshots after a write.
+CLEARING_POLICIES = (POLICY_AUTO_CLEAR, POLICY_BACKUP_THEN_CLEAR)
 
 
 def normalize_policy(value: Optional[str]) -> str:
     """Return a known policy id, falling back to the default."""
     return value if value in POLICY_IDS else DEFAULT_POLICY
+
+
+def clears_snapshots(value: Optional[str]) -> bool:
+    """True when *value* is a policy that purges snapshots after a write."""
+    return normalize_policy(value) in CLEARING_POLICIES
+
+
+def backs_up_first(value: Optional[str]) -> bool:
+    """True when *value* copies the snapshots into the Backup Center first."""
+    return normalize_policy(value) == POLICY_BACKUP_THEN_CLEAR
 
 
 def policy_label(value: Optional[str]) -> str:
@@ -63,7 +87,25 @@ def policy_label(value: Optional[str]) -> str:
     pid = normalize_policy(value)
     if pid == POLICY_AUTO_CLEAR:
         return tr("自動清除存檔備份")
+    if pid == POLICY_BACKUP_THEN_CLEAR:
+        return tr("先備份再清除（可還原）")
+    if pid == POLICY_KEEP:
+        return tr("停用：保留存檔備份")
     return pid
+
+
+def policy_hint(value: Optional[str]) -> str:
+    """One-line explanation shown under the dropdown, for the current policy."""
+    from i18n import tr
+    pid = normalize_policy(value)
+    if pid == POLICY_AUTO_CLEAR:
+        return tr("寫入戰役後刪除該戰役的 save_snapshots，確保編輯不會在載入時被還原。")
+    if pid == POLICY_BACKUP_THEN_CLEAR:
+        return tr("刪除前先把 save_snapshots 複製到備份中心，日後可從備份中心還原回舊的時間點。")
+    if pid == POLICY_KEEP:
+        return tr("完全不動 save_snapshots，保留遊戲的逐存檔回溯能力。"
+                  "注意：在主選單所做的編輯，可能在載入遊戲時被還原。")
+    return ""
 
 
 def policy_display_options() -> List[str]:
