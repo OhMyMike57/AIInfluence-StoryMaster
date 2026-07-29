@@ -17,11 +17,11 @@
     <string id="StoryMaster_Msg_NoCampaign" text="故事大师：需先加载战役" />
     <string id="StoryMaster_Msg_Updated" text="故事大师：已更新资料库" />
     <string id="StoryMaster_Msg_Failed" text="故事大师：更新失败，详见 log" />
-    <string id="StoryMaster_AutoEnc" text="自动同步百科描述" />
-    <string id="StoryMaster_AutoEnc_H" text="载入战役时，依角色档的人设描述更新至角色的百科页面，让你在编辑器中的修改能直接显示在游戏中。只读取上次同步后有变更过的角色。[ 默认：开 ]" />
-    <string id="StoryMaster_EncBtn" text="立即同步百科描述" />
+    <string id="StoryMaster_AutoEnc" text="载入战役时自动同步" />
+    <string id="StoryMaster_AutoEnc_H" text="载入战役时，依角色档的人设更新至角色的百科页面，让你在编辑器中的修改能直接显示在游戏中。只读取上次同步后有变更过的角色。[ 默认：开 ]" />
+    <string id="StoryMaster_EncBtn" text="立即同步百科页面" />
     <string id="StoryMaster_EncNow" text="同步" />
-    <string id="StoryMaster_EncBtn_H" text="立即刷新所有角色的百科描述（需在战役载入中才有效）。" />
+    <string id="StoryMaster_EncBtn_H" text="立即重新整理所有角色的百科页面（需在战役载入中才有效）。" />
     <string id="StoryMaster_Msg_EncSynced" text="故事大师：已同步百科描述（{COUNT} 位角色）" />
     <string id="StoryMaster_Grp_Editor" text="编辑器" />
     <string id="StoryMaster_OpenEditor" text="打开编辑器" />
@@ -32,5 +32,24 @@
     <string id="StoryMaster_Enc_Desc" text="— 描述 —" />
     <string id="StoryMaster_Enc_Backstory" text="— 背景 —" />
     <string id="StoryMaster_Enc_Personality" text="— 性格 —" />
+    <string id="StoryMaster_Grp_Enc" text="百科全书" />
+    <string id="StoryMaster_EncEnable" text="写入故事大师的百科版面" />
+    <string id="StoryMaster_EncEnable_H" text="把你在编辑器中撰写的人设显示在角色的百科页面上。关闭后百科页面完全交还给 AI效应（只显示背景与性格）。注意：关闭不会还原已经写过的页面，要还原请用下方的〔还原为原生页面〕。[ 默认：开 ]" />
+    <string id="StoryMaster_EncDesc" text="包含：描述" />
+    <string id="StoryMaster_EncDesc_H" text="你在编辑器中自由撰写的描述。AI效应原生不会显示这一项。[ 默认：开 ]" />
+    <string id="StoryMaster_EncBack" text="包含：背景" />
+    <string id="StoryMaster_EncBack_H" text="AI 生成的背景故事。[ 默认：开 ]" />
+    <string id="StoryMaster_EncPers" text="包含：性格" />
+    <string id="StoryMaster_EncPers_H" text="AI 生成的性格。[ 默认：开 ]" />
+    <string id="StoryMaster_EncCog" text="包含：认知风格" />
+    <string id="StoryMaster_EncCog_H" text="角色的思考方式——幽默感、诚实度、记恨程度等。约增加 250 字。[ 默认：关 ]" />
+    <string id="StoryMaster_EncSpeech" text="包含：语言癖好" />
+    <string id="StoryMaster_EncSpeech_H" text="角色的说话方式——语速、用词、态度等。约增加 180 字。[ 默认：关 ]" />
+    <string id="StoryMaster_EncRestore" text="还原为原生页面" />
+    <string id="StoryMaster_EncRestore_C" text="还原" />
+    <string id="StoryMaster_EncRestore_H" text="把故事大师改写过的百科页面还原回原本的内容：有记录到改写前原文的用原文，模组 XML 中有预先写好背景故事的用该文本，其余由游戏重新生成原版文字。已死亡的角色会保留讣闻。需在战役载入中才有效。" />
+    <string id="StoryMaster_Msg_EncRestored" text="故事大师：已还原 {COUNT} 个百科页面" />
+    <string id="StoryMaster_Enc_Cognitive" text="— 认知风格 —" />
+    <string id="StoryMaster_Enc_Speech" text="— 语言癖好 —" />
   </strings>
 </base>

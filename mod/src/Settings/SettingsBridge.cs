@@ -22,6 +22,27 @@ namespace AIInfluenceStoryMaster
             public bool AutoExport;              // auto-export campaign database on session launch
             public bool AutoSyncEncyclopedia;    // refresh encyclopedia text on session launch
             public bool EnableHeartbeat;
+
+            // Encyclopedia: master switch + which persona fields become sections.
+            // Defaults match what 1.2.0 wrote, so upgrading changes nothing.
+            public bool EncyclopediaEnabled;
+            public bool EncIncludeDescription;
+            public bool EncIncludeBackstory;
+            public bool EncIncludePersonality;
+            public bool EncIncludeCognitiveStyle;
+            public bool EncIncludeSpeechQuirks;
+
+            /// <summary>True when the layout is on and at least one field is selected.
+            /// All-fields-off would otherwise write an empty page.</summary>
+            public bool WritesEncyclopedia
+            {
+                get
+                {
+                    return EncyclopediaEnabled
+                        && (EncIncludeDescription || EncIncludeBackstory || EncIncludePersonality
+                            || EncIncludeCognitiveStyle || EncIncludeSpeechQuirks);
+                }
+            }
         }
 
         private static Cfg Defaults => new Cfg
@@ -29,6 +50,12 @@ namespace AIInfluenceStoryMaster
             AutoExport = true,
             AutoSyncEncyclopedia = true,
             EnableHeartbeat = true,
+            EncyclopediaEnabled = true,
+            EncIncludeDescription = true,
+            EncIncludeBackstory = true,
+            EncIncludePersonality = true,
+            EncIncludeCognitiveStyle = false,
+            EncIncludeSpeechQuirks = false,
         };
 
         private static bool? _mcm;
@@ -77,6 +104,12 @@ namespace AIInfluenceStoryMaster
                 AutoExport = s.AutoExport,
                 AutoSyncEncyclopedia = s.AutoSyncEncyclopedia,
                 EnableHeartbeat = s.EnableHeartbeat,
+                EncyclopediaEnabled = s.EncyclopediaEnabled,
+                EncIncludeDescription = s.EncIncludeDescription,
+                EncIncludeBackstory = s.EncIncludeBackstory,
+                EncIncludePersonality = s.EncIncludePersonality,
+                EncIncludeCognitiveStyle = s.EncIncludeCognitiveStyle,
+                EncIncludeSpeechQuirks = s.EncIncludeSpeechQuirks,
             };
         }
 

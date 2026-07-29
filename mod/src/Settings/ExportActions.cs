@@ -60,6 +60,32 @@ namespace AIInfluenceStoryMaster.Settings
         }
 
         /// <summary>
+        /// Put every encyclopedia page Story Master rewrote back to its original.
+        ///
+        /// Needed because <c>Hero.EncyclopediaText</c> lives in the save file: simply
+        /// switching the feature off leaves the rewritten pages behind forever.
+        /// See <see cref="EncyclopediaSync.RestoreOriginals"/> for the three tiers.
+        /// </summary>
+        public static void RestoreEncyclopediaNow()
+        {
+            try
+            {
+                int n = EncyclopediaSync.RestoreOriginals();
+                if (n < 0)
+                {
+                    Info("{=StoryMaster_Msg_NoCampaign}Story Master: load a campaign first");
+                    return;
+                }
+                InfoCount("{=StoryMaster_Msg_EncRestored}Story Master: {COUNT} encyclopedia page(s) restored", n);
+            }
+            catch (Exception ex)
+            {
+                try { FileContract.Log("Encyclopedia restore ERROR: " + ex); } catch { }
+                Info("{=StoryMaster_Msg_Failed}Story Master: update failed, see log");
+            }
+        }
+
+        /// <summary>
         /// Launch the desktop editor that ships in the module's <c>Tool/</c>
         /// subfolder.  Since v1.1.0 the module is the main body and the editor
         /// lives inside it, so the path is fixed relative to the module root.

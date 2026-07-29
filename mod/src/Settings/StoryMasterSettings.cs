@@ -27,6 +27,7 @@ namespace AIInfluenceStoryMaster.Settings
 
         private const string GEditor = "{=StoryMaster_Grp_Editor}Editor";
         private const string GExport = "{=StoryMaster_Grp_Export}Database";
+        private const string GEnc = "{=StoryMaster_Grp_Enc}Encyclopedia";
         private const string GStatus = "{=StoryMaster_Grp_Status}Status detection";
 
         // ── Editor ──────────────────────────────────────────────────────
@@ -50,17 +51,66 @@ namespace AIInfluenceStoryMaster.Settings
         public Action ExportNow { get; set; } = ExportActions.ExportCampaignDatabase;
 
         // ── Encyclopedia ────────────────────────────────────────────────
-        [SettingPropertyBool("{=StoryMaster_AutoEnc}Auto-sync encyclopedia entries", Order = 2,
+        //
+        // The master switch is first and phrased positively ("Write ..."), so the
+        // hint can explain what turning it OFF restores. Field toggles default to
+        // the three sections 1.2.0 already wrote — an upgrading player sees no
+        // change until they opt in to more.
+        [SettingPropertyBool("{=StoryMaster_EncEnable}Write Story Master's encyclopedia layout", Order = 0,
             RequireRestart = false,
-            HintText = "{=StoryMaster_AutoEnc_H}When a campaign loads, apply each character file's description, backstory and personality to their encyclopedia page, so edits made in the editor show up directly in game. Only characters changed since the last sync are read. [ Default: ON ]")]
-        [SettingPropertyGroup(GExport)]
+            HintText = "{=StoryMaster_EncEnable_H}Show the persona you author in the editor on each character's encyclopedia page. Turn OFF to leave the page entirely to AI Influence (backstory + personality only). Turning it off does not undo pages already written — use \"Restore original pages\" below for that. [ Default: ON ]")]
+        [SettingPropertyGroup(GEnc)]
+        public bool EncyclopediaEnabled { get; set; } = true;
+
+        [SettingPropertyBool("{=StoryMaster_AutoEnc}Auto-sync on campaign load", Order = 1,
+            RequireRestart = false,
+            HintText = "{=StoryMaster_AutoEnc_H}When a campaign loads, apply each character file's persona to their encyclopedia page, so edits made in the editor show up directly in game. Only characters changed since the last sync are read. [ Default: ON ]")]
+        [SettingPropertyGroup(GEnc)]
         public bool AutoSyncEncyclopedia { get; set; } = true;
 
-        [SettingPropertyButton("{=StoryMaster_EncBtn}Refresh encyclopedia now", Order = 3,
+        // ── Which persona fields become sections ────────────────────────
+        [SettingPropertyBool("{=StoryMaster_EncDesc}Include: Description", Order = 10,
+            RequireRestart = false,
+            HintText = "{=StoryMaster_EncDesc_H}The free-form description you write in the editor. AI Influence never shows this on its own. [ Default: ON ]")]
+        [SettingPropertyGroup(GEnc)]
+        public bool EncIncludeDescription { get; set; } = true;
+
+        [SettingPropertyBool("{=StoryMaster_EncBack}Include: Backstory", Order = 11,
+            RequireRestart = false,
+            HintText = "{=StoryMaster_EncBack_H}The AI-generated backstory. [ Default: ON ]")]
+        [SettingPropertyGroup(GEnc)]
+        public bool EncIncludeBackstory { get; set; } = true;
+
+        [SettingPropertyBool("{=StoryMaster_EncPers}Include: Personality", Order = 12,
+            RequireRestart = false,
+            HintText = "{=StoryMaster_EncPers_H}The AI-generated personality. [ Default: ON ]")]
+        [SettingPropertyGroup(GEnc)]
+        public bool EncIncludePersonality { get; set; } = true;
+
+        [SettingPropertyBool("{=StoryMaster_EncCog}Include: Cognitive style", Order = 13,
+            RequireRestart = false,
+            HintText = "{=StoryMaster_EncCog_H}How the character thinks — humour, honesty, how they hold a grudge. Adds roughly 250 characters. [ Default: OFF ]")]
+        [SettingPropertyGroup(GEnc)]
+        public bool EncIncludeCognitiveStyle { get; set; } = false;
+
+        [SettingPropertyBool("{=StoryMaster_EncSpeech}Include: Speech quirks", Order = 14,
+            RequireRestart = false,
+            HintText = "{=StoryMaster_EncSpeech_H}How the character speaks — pace, vocabulary, manner. Adds roughly 180 characters. [ Default: OFF ]")]
+        [SettingPropertyGroup(GEnc)]
+        public bool EncIncludeSpeechQuirks { get; set; } = false;
+
+        // ── Encyclopedia actions ────────────────────────────────────────
+        [SettingPropertyButton("{=StoryMaster_EncBtn}Refresh encyclopedia now", Order = 20,
             RequireRestart = false, Content = "{=StoryMaster_EncNow}Sync",
             HintText = "{=StoryMaster_EncBtn_H}Refresh every character's encyclopedia entry immediately (only works while a campaign is loaded).")]
-        [SettingPropertyGroup(GExport)]
+        [SettingPropertyGroup(GEnc)]
         public Action SyncEncyclopediaNow { get; set; } = ExportActions.SyncEncyclopediaNow;
+
+        [SettingPropertyButton("{=StoryMaster_EncRestore}Restore original pages", Order = 21,
+            RequireRestart = false, Content = "{=StoryMaster_EncRestore_C}Restore",
+            HintText = "{=StoryMaster_EncRestore_H}Put every encyclopedia page Story Master rewrote back to what it was: the exact original where one was recorded before the first overwrite, the hand-written text from the module XML where there is one, otherwise the game's own generated text. Dead characters keep their obituary. Only works while a campaign is loaded.")]
+        [SettingPropertyGroup(GEnc)]
+        public Action RestoreEncyclopediaNow { get; set; } = ExportActions.RestoreEncyclopediaNow;
 
         // ── Status detection ────────────────────────────────────────────
         [SettingPropertyBool("{=StoryMaster_Heartbeat}Write game-state heartbeat", Order = 0,
