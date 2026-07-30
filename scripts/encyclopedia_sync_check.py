@@ -11,8 +11,10 @@ pretending to execute it:
      nothing until the player opts in;
   3. the master switch is checked in *both* write paths (session sync and the
      Harmony postfix) — missing either leaves the feature half-on;
-  4. the restore tiers are ordered exact → XML → regenerate, and the dead-hero
-     guard sits before the regenerate tier (regenerating would erase an obituary);
+  4. the restore tiers are ordered exact → XML → clear, the dead-hero guard sits
+     before the clear (clearing would erase an obituary), and no tier ever
+     persists the game's own template (its variables resolve against globals that
+     are gone by render time — the "is a member of the , ." bug);
   5. every persona field the layout reads exists in real 6.0 character files.
 
 Run: python scripts/encyclopedia_sync_check.py
@@ -103,8 +105,14 @@ def main():
     for fn in ("Sync", "AfterModWrite"):
         body = _method_body(sync, fn)
         check(f"{fn} checks WritesEncyclopedia", "WritesEncyclopedia" in body)
-        check(f"{fn} returns early when off",
-              re.search(r"if\s*\(!\s*cfg\.WritesEncyclopedia\)\s*return", body) is not None)
+        # Any return form is fine — a bare `return;`, `return 0;`, or a block that
+        # logs first — as long as nothing is written on that path.
+        after = body[body.find("!cfg.WritesEncyclopedia"):]
+        m_ret = re.search(r"\breturn\b[^;]*;", after)
+        gate = after[:m_ret.end()] if m_ret else ""
+        check(f"{fn} returns on that path", bool(gate))
+        check(f"{fn} writes nothing before returning",
+              "ApplyLayout" not in gate and "EncyclopediaText =" not in gate)
     check("WritesEncyclopedia also requires a selected field",
           "EncIncludeDescription ||" in bridge or "EncIncludeDescription\n" in bridge)
 
@@ -151,6 +159,23 @@ def main():
           "IsOurLayout(original)" in body)
     check("restore drops the stale record from the file",
           "stale.Add" in body and "map.Remove" in body and "FlushOriginals()" in body)
+
+    # A recorded original is a one-shot undo token. Keeping it after use made a bad
+    # record permanent: every later restore re-applied the same text, so a file
+    # poisoned by an earlier build could never be escaped. Both the applied and the
+    # rejected records have to be released.
+    # The window has to clear the explanatory comment between the two statements.
+    i_exact_pp = body.find("exact++")
+    applied = body[i_exact_pp: i_exact_pp + 900]
+    check("an applied record is released too", "stale.Add" in applied)
+    check("both release paths reach the same trim",
+          body.count("stale.Add") >= 2)
+
+    # With the layout off the postfix must say so once, so a report of "the mod's
+    # persona does not show" can be attributed without guessing.
+    off = _method_body(sync, "AfterModWrite")
+    check("the postfix logs once when it stands down",
+          "_standDownLogged" in off and "FileContract.Log" in off)
     # Both write paths must persist what they captured; the postfix fires
     # mid-session and Sync may never run again before the player quits.
     for fn in ("Sync", "AfterModWrite"):

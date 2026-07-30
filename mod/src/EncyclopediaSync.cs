@@ -81,6 +81,7 @@ namespace AIInfluenceStoryMaster
 
         private static bool _reflectionFailedLogged;
         private static bool _patchAttempted;
+        private static bool _standDownLogged;
 
         /// <summary>UTC stamp of the last successful sync, per campaign folder, so a
         /// session-launch sync only revisits files edited since. Cleared on game restart.</summary>
@@ -214,7 +215,22 @@ namespace AIInfluenceStoryMaster
                 var cfg = SettingsBridge.Current;
                 // Master switch off: do nothing at all, so what the mod just wrote
                 // is exactly what the player sees — its native two-field layout.
-                if (!cfg.WritesEncyclopedia) return;
+                if (!cfg.WritesEncyclopedia)
+                {
+                    // Log it once. When a player reports "the mod's persona does not
+                    // show with Story Master's layout disabled", this line is what
+                    // separates the two possible causes: present means AI Influence
+                    // did write and the page is entirely its own business; absent
+                    // means the mod never wrote in the first place.
+                    if (!_standDownLogged)
+                    {
+                        _standDownLogged = true;
+                        FileContract.Log("EncyclopediaSync: AI Influence wrote an encyclopedia "
+                                         + "entry (" + (hero.Name == null ? "?" : hero.Name.ToString())
+                                         + "); our layout is off, leaving it untouched.");
+                    }
+                    return;
+                }
 
                 string[] cached;
                 PersonaCache.TryGetValue(hero.StringId ?? "", out cached);
@@ -478,7 +494,9 @@ namespace AIInfluenceStoryMaster
                 var xml = XmlEncyclopediaText.Load();
 
                 int exact = 0, fromXml = 0, cleared = 0, skipped = 0, discarded = 0;
-                var stale = new List<string>();   // records that were our own layout
+                // Records to drop: spent (applied) ones, plus any that turned out
+                // to be our own layout rather than a real original.
+                var stale = new List<string>();
                 foreach (var kv in heroes)
                 {
                     Hero hero = kv.Value;
@@ -505,6 +523,13 @@ namespace AIInfluenceStoryMaster
                                 ? TextObject.GetEmpty()
                                 : new TextObject(original, null);
                             exact++;
+                            // A recorded original is a one-shot undo token: it has
+                            // now been spent. Keeping it would make a second restore
+                            // re-apply the same old text forever, which is what made
+                            // a bad record impossible to get rid of. Dropping it lets
+                            // the next capture record the page as it now stands — the
+                            // native one we just put back.
+                            stale.Add(kv.Key);
                             continue;
                         }
 
@@ -534,8 +559,9 @@ namespace AIInfluenceStoryMaster
                     }
                 }
 
-                // Drop the poisoned records so the file heals itself instead of
-                // re-offering our own layout as "the original" on every restore.
+                // Write the trimmed map back: spent tokens and poisoned records
+                // both go, so the file reflects reality instead of re-offering the
+                // same text on every restore.
                 if (stale.Count > 0 && map != null)
                 {
                     foreach (string id in stale) map.Remove(id);
@@ -551,7 +577,8 @@ namespace AIInfluenceStoryMaster
                                  + " page(s) — " + exact + " exact, " + fromXml + " from XML, "
                                  + cleared + " cleared to the game default, "
                                  + skipped + " skipped (dead, no record)"
-                                 + (discarded > 0 ? ", " + discarded + " stale record(s) dropped" : "")
+                                 + (discarded > 0 ? ", " + discarded + " poisoned record(s) discarded" : "")
+                                 + ", " + stale.Count + " record(s) released"
                                  + ".");
                 return exact + fromXml + cleared;
             }
