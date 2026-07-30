@@ -16,7 +16,7 @@ namespace AIInfluenceStoryMaster
     /// </summary>
     public class SubModule : MBSubModuleBase
     {
-        public const string ModVersion = "1.2.0";
+        public const string ModVersion = "1.2.1";
 
         // Real-time heartbeat throttle (seconds). Independent of the campaign
         // clock, so it stays fresh even when the game is paused.

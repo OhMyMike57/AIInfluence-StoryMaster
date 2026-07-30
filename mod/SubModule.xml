@@ -2,7 +2,7 @@
 <Module>
   <Name value="AI Influence: Story Master"/>
   <Id value="AIInfluence_StoryMaster"/>
-  <Version value="v1.2.0"/>
+  <Version value="v1.2.1"/>
   <SingleplayerModule value="true"/>
   <MultiplayerModule value="false"/>
   <Official value="false"/>
