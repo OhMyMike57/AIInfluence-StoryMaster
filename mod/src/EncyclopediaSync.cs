@@ -399,6 +399,27 @@ namespace AIInfluenceStoryMaster
 
         private static bool _originalsDirty;
 
+        /// <summary>Record what a restore just put on the page as that hero's original.
+        ///
+        /// Two jobs. It makes the record truthful — after tier 2 or tier 3 the page
+        /// *is* the original, so that is what should be on file. And it keeps a record
+        /// present, which is what stops <see cref="CaptureOriginal"/> from recording
+        /// the page again later.
+        ///
+        /// That second job is not theoretical: an earlier attempt deleted the record
+        /// once it had been applied, reasoning that a spent undo token is worthless.
+        /// The result was a self-renewing loop — with no record, the next sync
+        /// captured whatever was on the page (including a mangled page from an
+        /// earlier build) and wrote it straight back in as "the original".</summary>
+        private static void Remember(Dictionary<string, string> map, string id, string text)
+        {
+            if (map == null || string.IsNullOrEmpty(id)) return;
+            string existing;
+            if (map.TryGetValue(id, out existing) && existing == text) return;
+            map[id] = text;
+            _originalsDirty = true;
+        }
+
         private static Dictionary<string, string> LoadOriginals()
         {
             string folder = ExportBehavior.ResolveFolder();
@@ -494,8 +515,7 @@ namespace AIInfluenceStoryMaster
                 var xml = XmlEncyclopediaText.Load();
 
                 int exact = 0, fromXml = 0, cleared = 0, skipped = 0, discarded = 0;
-                // Records to drop: spent (applied) ones, plus any that turned out
-                // to be our own layout rather than a real original.
+                // Records that turned out to be our own layout, not a real original.
                 var stale = new List<string>();
                 foreach (var kv in heroes)
                 {
@@ -523,13 +543,6 @@ namespace AIInfluenceStoryMaster
                                 ? TextObject.GetEmpty()
                                 : new TextObject(original, null);
                             exact++;
-                            // A recorded original is a one-shot undo token: it has
-                            // now been spent. Keeping it would make a second restore
-                            // re-apply the same old text forever, which is what made
-                            // a bad record impossible to get rid of. Dropping it lets
-                            // the next capture record the page as it now stands — the
-                            // native one we just put back.
-                            stale.Add(kv.Key);
                             continue;
                         }
 
@@ -539,6 +552,7 @@ namespace AIInfluenceStoryMaster
                         {
                             hero.EncyclopediaText = new TextObject(fromFile, null);
                             fromXml++;
+                            Remember(map, kv.Key, fromFile);
                             continue;
                         }
 
@@ -551,6 +565,7 @@ namespace AIInfluenceStoryMaster
                         }
                         hero.EncyclopediaText = TextObject.GetEmpty();
                         cleared++;
+                        Remember(map, kv.Key, "");
                     }
                     catch (Exception exHero)
                     {
@@ -559,13 +574,12 @@ namespace AIInfluenceStoryMaster
                     }
                 }
 
-                // Write the trimmed map back: spent tokens and poisoned records
-                // both go, so the file reflects reality instead of re-offering the
-                // same text on every restore.
-                if (stale.Count > 0 && map != null)
+                // Drop the poisoned records (ours-as-original) and persist whatever
+                // Remember() put in, so the file reflects the pages that now exist.
+                if (map != null)
                 {
                     foreach (string id in stale) map.Remove(id);
-                    _originalsDirty = true;
+                    if (stale.Count > 0) _originalsDirty = true;
                     FlushOriginals();
                 }
 
@@ -578,7 +592,7 @@ namespace AIInfluenceStoryMaster
                                  + cleared + " cleared to the game default, "
                                  + skipped + " skipped (dead, no record)"
                                  + (discarded > 0 ? ", " + discarded + " poisoned record(s) discarded" : "")
-                                 + ", " + stale.Count + " record(s) released"
+
                                  + ".");
                 return exact + fromXml + cleared;
             }

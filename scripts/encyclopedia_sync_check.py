@@ -160,16 +160,20 @@ def main():
     check("restore drops the stale record from the file",
           "stale.Add" in body and "map.Remove" in body and "FlushOriginals()" in body)
 
-    # A recorded original is a one-shot undo token. Keeping it after use made a bad
-    # record permanent: every later restore re-applied the same text, so a file
-    # poisoned by an earlier build could never be escaped. Both the applied and the
-    # rejected records have to be released.
-    # The window has to clear the explanatory comment between the two statements.
-    i_exact_pp = body.find("exact++")
-    applied = body[i_exact_pp: i_exact_pp + 900]
-    check("an applied record is released too", "stale.Add" in applied)
-    check("both release paths reach the same trim",
-          body.count("stale.Add") >= 2)
+    # A restore must never leave a hero *without* a record. Deleting the record
+    # after applying it looked reasonable ("a spent undo token is worthless") and
+    # created a self-renewing loop: with no record, the next sync captured whatever
+    # was on the page — including a page an earlier build had mangled — and wrote
+    # it back in as "the original". Tiers 2 and 3 therefore record what they just
+    # wrote, which is both truthful and enough to block re-capture.
+    check("tier 2 records the XML text it applied",
+          "Remember(map, kv.Key, fromFile)" in body)
+    check("tier 3 records the cleared state",
+          'Remember(map, kv.Key, "")' in body)
+    check("a record is never dropped just because it was used",
+          body.count("stale.Add") == 1)
+    rem = _method_body(sync, "Remember")
+    check("Remember only marks dirty on a real change", "existing == text" in rem)
 
     # With the layout off the postfix must say so once, so a report of "the mod's
     # persona does not show" can be attributed without guessing.
