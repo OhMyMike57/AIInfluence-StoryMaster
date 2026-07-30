@@ -127,6 +127,61 @@ def main():
           _method_body(sync, "ApplyLayout").find("CaptureOriginal")
           < _method_body(sync, "ApplyLayout").find("hero.EncyclopediaText ="))
 
+    # ── 4b. our own layout is never treated as an original ──────────────
+    section("our own layout is never mistaken for an original")
+    cap = _method_body(sync, "CaptureOriginal")
+    check("capture rejects our own layout", "IsOurLayout(text)" in cap)
+    check("capture returns instead of storing it",
+          re.search(r"if\s*\(IsOurLayout\(text\)\)\s*return;", cap) is not None)
+
+    body = _method_body(sync, "RestoreOriginals")
+    check("restore discards a record that is our layout",
+          "IsOurLayout(original)" in body)
+    check("restore drops the stale record from the file",
+          "stale.Add" in body and "map.Remove" in body and "FlushOriginals()" in body)
+    # Both write paths must persist what they captured; the postfix fires
+    # mid-session and Sync may never run again before the player quits.
+    for fn in ("Sync", "AfterModWrite"):
+        check(f"{fn} flushes captured originals",
+              "FlushOriginals()" in _method_body(sync, fn))
+
+    det = _method_body(sync, "IsOurLayout")
+    check("detection resolves the localised headings", "FieldTitles" in det)
+    check("detection also matches the heading shape (— … —)",
+          "'—'" in det or "—" in det)
+
+    # Mirror the C# rule in Python and try it on the shapes that matter — the C#
+    # cannot run here, but the *rule* is what regressed and it is checkable.
+    def is_our_layout(text, headings):
+        if not text or not text.strip():
+            return False
+        for h in headings:
+            if h and h in text:
+                return True
+        for raw in text.split("\n"):
+            line = raw.strip()
+            if not line:
+                continue
+            return len(line) > 2 and line[0] == "—" and line[-1] == "—"
+        return False
+
+    zh = ["— 描述 —", "— 背景 —", "— 性格 —", "— 認知風格 —", "— 語言癖好 —"]
+    cases = [
+        # (text, expected, why)
+        ("— 背景 —\n伊倫出生在…\n\n— 性格 —\n矛盾的巴坦尼亞女性…", True,
+         "the exact page the bug produced"),
+        ("— Backstory —\nBorn in Marunath…", True, "our layout in another language"),
+        ("Ilyn is a member of the Bloodravens, a mercenary company.", False,
+         "the game's generated sentence"),
+        ("Lahar is a sea captain and former corsair.", False, "authored XML text"),
+        ("", False, "an empty page"),
+        ("   \n  ", False, "whitespace only"),
+        ("—", False, "a lone dash is not a heading"),
+    ]
+    for text, want, why in cases:
+        check(f"{'detects' if want else 'allows'}: {why}",
+              is_our_layout(text, zh) is want)
+
     # ── 5. the fields exist in real data ────────────────────────────────
     section("persona fields exist in real 6.0 saves")
     if not SAMPLE.is_dir():

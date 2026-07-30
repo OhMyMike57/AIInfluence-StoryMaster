@@ -128,6 +128,86 @@ def test_safety_backup(tmp: Path):
     check("undo restored the precious state", tree(camp) == before)
 
 
+def test_safety_backup_kind(tmp: Path):
+    """The safety backup must be filed as the SAME kind it protects.
+
+    Regression for a real bug: every safety backup went under ``save_data/`` named
+    after the target folder, so a snapshot restore produced a
+    ``save_snapshots_before_restore_<ts>`` entry that the Backup Center listed as a
+    *campaign* backup — restoring it would have written into a non-existent
+    campaign named after the folder. The undo has to round-trip through the normal
+    restore path, which derives its target from the kind.
+    """
+    print("\n[safety backup is filed under the right kind]")
+    base = tmp / "backups"
+    save_data = tmp / "sd"
+    camp = save_data / "CID7"
+
+    cases = [
+        (B.KIND_SNAPSHOT, camp / "save_snapshots", B.SNAPSHOT_SUBDIR, "save001/meta.json"),
+        (B.KIND_DB, camp / "storytools", B.DB_SUBDIR, "terminology.json"),
+        (B.KIND_CAMPAIGN, camp, B.SAVE_SUBDIR, "hero.json"),
+    ]
+    for kind, target, subdir, rel in cases:
+        write(target / rel, "recorded")
+        bk = base / subdir / f"bk_{kind}"
+        bk.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(target, bk, dirs_exist_ok=True)
+        write(target / rel, "drifted")
+
+        e = entry_for(bk, kind, "CID7")
+        rep = B.restore_backup(e, target, backup_base=base)
+        sb = Path(rep.safety_backup) if rep.safety_backup else None
+        check(f"{kind}: restored", rep.ok)
+        check(f"{kind}: safety backup exists", sb is not None and sb.is_dir())
+        if sb is None:
+            continue
+        check(f"{kind}: filed under {subdir}/", sb.parent.name == subdir)
+        check(f"{kind}: name carries the campaign id", sb.name.startswith("CID7")
+              or sb.name.startswith(B._LEGACY_DB_PREFIX + "CID7"))
+
+        # The Backup Center must see it as the kind we can actually undo with.
+        listed = next((x for x in B.list_backups(base) if x.path == sb), None)
+        check(f"{kind}: listed with the right kind",
+              listed is not None and listed.kind == kind)
+        check(f"{kind}: listed with the right campaign",
+              listed is not None and listed.campaign_id == "CID7")
+        if listed is not None:
+            back = B.resolve_restore_target(listed, save_data_dir=save_data,
+                                            config_dir=tmp / "cfg")
+            check(f"{kind}: undo resolves back to the same target", back == target)
+
+
+def test_no_empty_safety_backup(tmp: Path):
+    """An empty (or absent) target has nothing to protect — don't file a backup.
+
+    Regression: restoring a snapshot backup right after the snapshots were cleared
+    left an empty folder in the Backup Center every time.
+    """
+    print("\n[no safety backup when there is nothing to protect]")
+    base = tmp / "backups"
+    camp = tmp / "sd" / "CID8"
+    snaps = camp / "save_snapshots"
+
+    write(snaps / "save001" / "meta.json", "{}")
+    bk = base / B.SNAPSHOT_SUBDIR / "bk"
+    bk.mkdir(parents=True)
+    shutil.copytree(snaps, bk, dirs_exist_ok=True)
+
+    # The live snapshots were cleared (exactly what backup_then_clear does).
+    shutil.rmtree(snaps)
+    snaps.mkdir()
+
+    e = entry_for(bk, B.KIND_SNAPSHOT, "CID8")
+    rep = B.restore_backup(e, snaps, backup_base=base)
+    check("restore ok", rep.ok)
+    check("no safety backup was created", rep.safety_backup is None)
+    check("no empty folder left behind",
+          not any(p.is_dir() and not any(p.iterdir())
+                  for p in (base / B.SNAPSHOT_SUBDIR).iterdir() if p != bk))
+    check("the snapshot really came back", (snaps / "save001" / "meta.json").is_file())
+
+
 # ── 3. target resolution per kind ───────────────────────────────────────
 
 def test_target_resolution(tmp: Path):
@@ -340,6 +420,8 @@ def main():
         tmp = Path(td)
         test_round_trip(tmp / "t1")
         test_safety_backup(tmp / "t2")
+        test_safety_backup_kind(tmp / "t2b")
+        test_no_empty_safety_backup(tmp / "t2c")
         test_target_resolution(tmp / "t3")
         test_backup_store_guard(tmp / "t4")
         test_all_kinds(tmp / "t5")

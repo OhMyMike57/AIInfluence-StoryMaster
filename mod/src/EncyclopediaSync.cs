@@ -224,7 +224,12 @@ namespace AIInfluenceStoryMaster
                 if (cached != null) Array.Copy(cached, persona, FieldKeys.Length);
                 persona[1] = backstory;
                 persona[2] = personality;
-                ApplyLayout(hero, persona, cfg);
+                if (ApplyLayout(hero, persona, cfg))
+                    // Persist here too: this path fires mid-session (an interaction,
+                    // a persona generation) and Sync — the only other flush — may not
+                    // run again before the player quits, which would lose the captured
+                    // original for exactly the heroes they just talked to.
+                    FlushOriginals();
             }
             catch { /* a postfix must never break the host mod */ }
         }
@@ -317,7 +322,14 @@ namespace AIInfluenceStoryMaster
         /// <summary>Record a hero's page the first time we are about to replace it.
         ///
         /// Only the first value per hero is kept — later calls must not overwrite it
-        /// with our own layout, which would make the record useless.</summary>
+        /// with our own layout, which would make the record useless.
+        ///
+        /// And crucially, a page that *already is* our layout is never recorded at
+        /// all. Players who ran 1.2.0 (which had no capture) come to 1.2.1 with our
+        /// three-section text already on every page; recording that as "the original"
+        /// made 〔還原為原生頁面〕 write our own format straight back, which is exactly
+        /// what it is supposed to remove. Leaving the key absent lets the restore fall
+        /// through to the XML / regenerate tiers instead.</summary>
         private static void CaptureOriginal(Hero hero)
         {
             try
@@ -327,12 +339,46 @@ namespace AIInfluenceStoryMaster
                 var map = LoadOriginals();
                 if (map == null || map.ContainsKey(id)) return;
                 TextObject cur = hero.EncyclopediaText;
+                string text = cur == null ? "" : (cur.ToString() ?? "");
+                if (IsOurLayout(text)) return;
                 // Store "" for an empty page: an absent key means "never captured",
                 // and the two need to stay distinguishable on restore.
-                map[id] = cur == null ? "" : (cur.ToString() ?? "");
+                map[id] = text;
                 _originalsDirty = true;
             }
             catch { /* capture is best-effort; never break a sync over it */ }
+        }
+
+        /// <summary>True when *text* looks like a page Story Master wrote.
+        ///
+        /// Two signals, because the headings are localised and the game language may
+        /// have changed since the text was written:
+        ///   • any of our section headings, resolved in the current language;
+        ///   • the shape of <see cref="AppendSection"/>'s heading — a line that is
+        ///     exactly "— … —" — which nothing else on an encyclopedia page uses.
+        /// A false positive only costs restore precision (it falls through to the
+        /// next tier); a false negative writes our own layout back as "the original",
+        /// which is the failure this exists to prevent.</summary>
+        private static bool IsOurLayout(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            foreach (string keyed in FieldTitles)
+            {
+                string heading;
+                try { heading = new TextObject(keyed, null).ToString(); }
+                catch { continue; }
+                if (!string.IsNullOrEmpty(heading)
+                    && text.IndexOf(heading, StringComparison.Ordinal) >= 0)
+                    return true;
+            }
+            // Shape check on the first non-empty line.
+            foreach (string raw in text.Split('\n'))
+            {
+                string line = raw.Trim();
+                if (line.Length == 0) continue;
+                return line.Length > 2 && line[0] == '—' && line[line.Length - 1] == '—';
+            }
+            return false;
         }
 
         private static bool _originalsDirty;
@@ -414,15 +460,29 @@ namespace AIInfluenceStoryMaster
                 var heroes = BuildHeroIndex();
                 var xml = XmlEncyclopediaText.Load();
 
-                int exact = 0, fromXml = 0, regenerated = 0, skipped = 0;
+                int exact = 0, fromXml = 0, regenerated = 0, skipped = 0, discarded = 0;
+                var stale = new List<string>();   // records that were our own layout
                 foreach (var kv in heroes)
                 {
                     Hero hero = kv.Value;
                     if (hero == null) continue;
                     try
                     {
-                        string original;
-                        if (map != null && map.TryGetValue(kv.Key, out original))
+                        // Initialised because the && short-circuits when map is null,
+                        // leaving the out parameter unassigned.
+                        string original = null;
+                        bool haveRecord = map != null && map.TryGetValue(kv.Key, out original);
+                        // A record that is itself our layout is worse than no record:
+                        // restoring it re-applies the very format being removed. Files
+                        // written before this check existed can contain exactly that,
+                        // so drop it here rather than trusting the file.
+                        if (haveRecord && IsOurLayout(original))
+                        {
+                            haveRecord = false;
+                            discarded++;
+                            stale.Add(kv.Key);
+                        }
+                        if (haveRecord)
                         {
                             hero.EncyclopediaText = string.IsNullOrEmpty(original)
                                 ? TextObject.GetEmpty()
@@ -461,13 +521,24 @@ namespace AIInfluenceStoryMaster
                     }
                 }
 
+                // Drop the poisoned records so the file heals itself instead of
+                // re-offering our own layout as "the original" on every restore.
+                if (stale.Count > 0 && map != null)
+                {
+                    foreach (string id in stale) map.Remove(id);
+                    _originalsDirty = true;
+                    FlushOriginals();
+                }
+
                 // Force the next sync to redo everything, otherwise the "changed
                 // since" filter would leave the restored pages in place while the
                 // character files still hold the persona we just stopped showing.
                 LastSync.Clear();
                 FileContract.Log("EncyclopediaSync: restored " + (exact + fromXml + regenerated)
                                  + " page(s) — " + exact + " exact, " + fromXml + " from XML, "
-                                 + regenerated + " regenerated, " + skipped + " skipped (dead, no record).");
+                                 + regenerated + " regenerated, " + skipped + " skipped (dead, no record)"
+                                 + (discarded > 0 ? ", " + discarded + " stale record(s) dropped" : "")
+                                 + ".");
                 return exact + fromXml + regenerated;
             }
             catch (Exception ex)

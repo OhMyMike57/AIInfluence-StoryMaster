@@ -73,6 +73,12 @@ _LEGACY_DB_PREFIX = "terminology_"
 _TS_RE = re.compile(r"_(\d{8})_(\d{6})$")
 _INVALID_NAME_CHARS = set('\\/:*?"<>|')
 
+#: Marker in the name of a backup taken automatically just before a restore.
+#: Sits between the campaign id and the timestamp so the name stays readable —
+#: :func:`_campaign_id_from_name` strips it, or the id would come back as
+#: "<cid>_before_restore" and the undo could not resolve its target.
+_SAFETY_MARKER = "_before_restore"
+
 
 def ensure_dir(path: Path) -> None:
     Path(path).mkdir(parents=True, exist_ok=True)
@@ -154,10 +160,14 @@ def _parse_stamp(name: str) -> Optional[datetime]:
 
 
 def _campaign_id_from_name(name: str, *, strip_prefix: str = "") -> Optional[str]:
-    """Recover the campaign id from ``<cid>_<stamp>`` (optionally stripping a
-    leading prefix such as ``terminology_``)."""
+    """Recover the campaign id from ``<cid>[_before_restore]_<stamp>``.
+
+    Optionally strips a leading prefix such as ``terminology_``.
+    """
     core = name[len(strip_prefix):] if strip_prefix and name.startswith(strip_prefix) else name
     cid = _TS_RE.sub("", core).strip()
+    if cid.endswith(_SAFETY_MARKER):
+        cid = cid[: -len(_SAFETY_MARKER)].strip()
     return cid or None
 
 
@@ -582,19 +592,9 @@ def restore_backup(entry: BackupEntry, target: Path, *,
     report = RestoreReport(ok=False, plan=plan)
 
     # ── Safety net: snapshot the live state before touching it ───────────
-    if safety_backup and plan.target_exists:
+    if safety_backup:
         try:
-            if entry.kind == KIND_CONFIG:
-                report.safety_backup = backup_tool_config(target, base)
-            else:
-                stamp = f"{target.name}_before_restore_{_timestamp()}"
-                dst = _unique_dir(base / SAVE_SUBDIR / stamp)
-                ensure_dir(dst.parent)
-                # No dirs_exist_ok: _unique_dir guarantees a fresh folder, and
-                # merging into an existing one is exactly the corruption we are
-                # avoiding here.
-                shutil.copytree(target, dst)
-                report.safety_backup = dst
+            report.safety_backup = _make_safety_backup(entry, target, base)
         except Exception as exc:
             # A restore without its undo is not worth the risk — stop here.
             report.errors.append(tr("還原前的安全備份失敗，已中止：{v0}").format(v0=str(exc)))
@@ -628,6 +628,39 @@ def restore_backup(entry: BackupEntry, target: Path, *,
     _prune_empty_dirs(target)
     report.ok = not report.errors
     return report
+
+
+def _make_safety_backup(entry: BackupEntry, target: Path, base: Path) -> Optional[Path]:
+    """Copy the live target aside so the restore itself can be undone.
+
+    Stored **as the same kind** as what is being restored. That matters: the undo
+    is performed by restoring this backup, and :func:`resolve_restore_target`
+    derives its destination from the kind and campaign id. An earlier version
+    filed every safety backup under ``save_data/`` named after the target folder,
+    which produced entries like ``save_snapshots_before_restore_<ts>`` that the
+    Backup Center listed as *campaign* backups — restoring one would have written
+    into a non-existent campaign called "save_snapshots_before_restore".
+
+    Returns ``None`` when there is nothing to protect (target absent or empty);
+    writing an empty folder every time only adds noise to the Backup Center.
+    """
+    target = Path(target)
+    if not target.is_dir() or not _iter_relative_files(target):
+        return None
+
+    if entry.kind == KIND_CONFIG:
+        return backup_tool_config(target, base)
+
+    cid = entry.campaign_id or target.name
+    prefix = _LEGACY_DB_PREFIX if entry.kind == KIND_DB else ""
+    subdir = _KIND_SUBDIR.get(entry.kind, SAVE_SUBDIR)
+    dst = _unique_dir(base / subdir
+                      / f"{prefix}{cid}{_SAFETY_MARKER}_{_timestamp()}")
+    ensure_dir(dst.parent)
+    # No dirs_exist_ok: _unique_dir guarantees a fresh folder, and merging into an
+    # existing one is exactly the corruption this backup exists to prevent.
+    shutil.copytree(target, dst)
+    return dst
 
 
 def _prune_empty_dirs(root: Path) -> None:
