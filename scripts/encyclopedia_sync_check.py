@@ -157,8 +157,16 @@ def main():
     body = _method_body(sync, "RestoreOriginals")
     check("restore discards a record that is our layout",
           "IsOurLayout(original)" in body)
-    check("restore drops the stale record from the file",
-          "stale.Add" in body and "map.Remove" in body and "FlushOriginals()" in body)
+    # The poisoned record must be removed AT THE POINT OF DISCOVERY, not collected
+    # for a pass after the loop: the tier that then handles the hero calls
+    # Remember(), and a deferred removal deletes the correct value it just wrote —
+    # leaving the hero with no record, which is what lets a later sync capture
+    # someone else's text as "the original".
+    i_disc = body.find("IsOurLayout(original)")
+    disc = body[i_disc: i_disc + 700]
+    check("poisoned record removed inside the loop", "map.Remove(kv.Key)" in disc)
+    check("no deferred removal pass", "foreach (string id in stale)" not in body)
+    check("the map is persisted", "FlushOriginals()" in body)
 
     # A restore must never leave a hero *without* a record. Deleting the record
     # after applying it looked reasonable ("a spent undo token is worthless") and
@@ -171,7 +179,7 @@ def main():
     check("tier 3 records the cleared state",
           'Remember(map, kv.Key, "")' in body)
     check("a record is never dropped just because it was used",
-          body.count("stale.Add") == 1)
+          "stale" not in body)
     rem = _method_body(sync, "Remember")
     check("Remember only marks dirty on a real change", "existing == text" in rem)
 

@@ -515,8 +515,6 @@ namespace AIInfluenceStoryMaster
                 var xml = XmlEncyclopediaText.Load();
 
                 int exact = 0, fromXml = 0, cleared = 0, skipped = 0, discarded = 0;
-                // Records that turned out to be our own layout, not a real original.
-                var stale = new List<string>();
                 foreach (var kv in heroes)
                 {
                     Hero hero = kv.Value;
@@ -535,7 +533,14 @@ namespace AIInfluenceStoryMaster
                         {
                             haveRecord = false;
                             discarded++;
-                            stale.Add(kv.Key);
+                            // Drop it here rather than after the loop: the tier that
+                            // handles this hero next calls Remember(), and a deferred
+                            // removal would delete the correct value Remember had just
+                            // written — leaving the hero with no record at all, which
+                            // is what lets a later sync capture someone else's text as
+                            // "the original".
+                            map.Remove(kv.Key);
+                            _originalsDirty = true;
                         }
                         if (haveRecord)
                         {
@@ -574,14 +579,9 @@ namespace AIInfluenceStoryMaster
                     }
                 }
 
-                // Drop the poisoned records (ours-as-original) and persist whatever
-                // Remember() put in, so the file reflects the pages that now exist.
-                if (map != null)
-                {
-                    foreach (string id in stale) map.Remove(id);
-                    if (stale.Count > 0) _originalsDirty = true;
-                    FlushOriginals();
-                }
+                // Persist what Remember() recorded (and what the discard path
+                // removed), so the file reflects the pages that now exist.
+                FlushOriginals();
 
                 // Force the next sync to redo everything, otherwise the "changed
                 // since" filter would leave the restored pages in place while the
@@ -592,7 +592,6 @@ namespace AIInfluenceStoryMaster
                                  + cleared + " cleared to the game default, "
                                  + skipped + " skipped (dead, no record)"
                                  + (discarded > 0 ? ", " + discarded + " poisoned record(s) discarded" : "")
-
                                  + ".");
                 return exact + fromXml + cleared;
             }
