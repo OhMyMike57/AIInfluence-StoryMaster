@@ -28,7 +28,7 @@ def _kind_label(kind: str) -> str:
     if kind == bks.KIND_CONFIG:
         return tr("工具設定備份")
     if kind == bks.KIND_SNAPSHOT:
-        return tr("存檔備份（save_snapshots）")
+        return tr("存檔快照（save_snapshots）")
     return kind
 
 

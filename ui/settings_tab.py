@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, filedialog
 
+from services import backup_service as bks
 from services import snapshot_service as svc_snapshot
 from services.settings_service import (
     AVAILABLE_LANGUAGES, AVAILABLE_THEMES, normalize_default_sort,
@@ -17,17 +18,19 @@ from widgets.window_center import center_window
 
 
 def _open_snapshot_help(app) -> None:
-    """Explain what 「存檔備份」 means here — the MOD's snapshot, not ours.
+    """Explain 戰役備份 vs 存檔快照 — ours versus the mod's.
 
-    Players already know this tool has its own 備份中心, so the wording has to
-    make the distinction unmissable; body text is hard-coded zh-Hant like the
-    other in-app help windows (see 動態事件 使用說明) to avoid bloating i18n.
+    Both were called "備份" until 1.2.1, which made the snapshot setting read as
+    if it governed the Backup Center. The window now leads with the distinction
+    and covers both preferences, since the pair only makes sense together.
+    Body text is hard-coded zh-Hant like the other in-app help windows (see
+    動態事件 使用說明) to avoid bloating i18n.
     """
     win = tk.Toplevel(app.root)
-    win.title(tr("存檔備份處理 — 說明"))
+    win.title(tr("戰役備份 與 存檔快照 — 說明"))
     win.transient(app.root)
     win.grab_set()
-    center_window(win, 660, 470)
+    center_window(win, 700, 600)
 
     t = tk.Text(win, wrap="word", font=("Microsoft JhengHei", 10),
                 relief="flat", padx=16, pady=14, cursor="arrow")
@@ -37,34 +40,48 @@ def _open_snapshot_help(app) -> None:
     t.tag_configure("body", spacing3=4)
     t.tag_configure("warn", foreground=tcol("#C0392B"), font=("Microsoft JhengHei", 10, "bold"))
     t.tag_configure("ok", foreground=tcol("#1A8A4A"))
+    t.tag_configure("key", font=("Microsoft JhengHei", 10, "bold"),
+                    foreground=tcol("#884EA0"))
 
-    t.insert("end", tr("這裡的「存檔備份」是誰的備份？"), "h")
+    t.insert("end", tr("兩件不同的事，別搞混"), "h")
     t.insert("end", "\n", "body")
-    t.insert("end", tr("是《AI效應》模組自己的備份，不是本工具的備份中心。"), "warn")
+    t.insert("end", tr("戰役備份"), "key")
+    t.insert("end", tr("＝本工具自己的備份。批量寫入或刪除前，把整個戰役資料夾複製到"
+                       "備份中心，出錯時可以還原回來。由你控制。"), "body")
     t.insert("end", "\n", "body")
-    t.insert("end", tr("AI效應 6.0 起，每次你在遊戲中存檔時，模組都會把整個戰役資料夾"
-                       "複製一份到 save_snapshots 資料夾（依存檔槽分開存放）。"), "body")
+    t.insert("end", tr("存檔快照"), "key")
+    t.insert("end", tr("＝《AI效應》模組自己的東西（save_snapshots 資料夾）。"
+                       "你在遊戲中每次存檔，模組就把整個戰役資料夾複製一份進去，依存檔槽分開存放。"), "body")
 
-    t.insert("end", "\n" + tr("為什麼需要處理它？"), "h")
+    t.insert("end", "\n" + tr("為什麼存檔快照需要「處理」？"), "h")
     t.insert("end", "\n", "body")
-    t.insert("end", tr("因為載入存檔時，模組會用那份備份「覆蓋」整個戰役資料夾——先清空、再整包拷回。"
-                       "也就是說：你在主選單用本工具做的編輯，會在下次載入遊戲時被還原掉，"
+    t.insert("end", tr("因為載入存檔時，模組會用快照「覆蓋」整個戰役資料夾——先清空、再整包拷回。"), "warn")
+    t.insert("end", "\n", "body")
+    t.insert("end", tr("也就是說：你在主選單用本工具做的編輯，會在下次載入遊戲時被還原掉，"
                        "就像沒改過一樣；新增的角色檔也會被一併刪除。"), "body")
 
-    t.insert("end", "\n" + tr("「自動清除存檔備份」做了什麼？"), "h")
+    t.insert("end", "\n" + tr("三個選項的差別"), "h")
     t.insert("end", "\n", "body")
-    t.insert("end", tr("本工具每次寫入戰役資料後，會刪掉該戰役 save_snapshots 內的備份。"
-                       "模組載入時找不到備份，就會直接使用你編輯後的資料。"), "body")
+    t.insert("end", tr("複製到備份中心後清除"), "key")
+    t.insert("end", tr("（預設）先把快照複製進備份中心（類型＝存檔快照），再刪掉原本的。"
+                       "編輯一定生效，而且日後想回到舊的時間點，仍可從備份中心還原。"
+                       "什麼都不會失去，所以是預設值。"), "body")
     t.insert("end", "\n", "body")
-    t.insert("end", tr("這是安全的：那份備份本來就是「用過即丟」——模組還原後也會自己把它刪掉。"), "ok")
+    t.insert("end", tr("直接清除快照"), "key")
+    t.insert("end", tr("不留副本，直接刪除。編輯一定生效，但遊戲的逐存檔回溯能力會消失。"), "body")
+    t.insert("end", "\n", "body")
+    t.insert("end", tr("停用：保留快照"), "key")
+    t.insert("end", tr("完全不動快照，保留遊戲原本的回溯行為。代價是你在主選單做的編輯"
+                       "可能在載入時被還原——適合只在遊戲執行中做「新增」類編輯的玩家。"), "body")
 
-    t.insert("end", "\n" + tr("會有什麼影響？"), "h")
+    t.insert("end", "\n" + tr("清除快照安全嗎？"), "h")
     t.insert("end", "\n", "body")
-    t.insert("end", tr("唯一的差別是：當你去載入「更舊的存檔槽」時，模組不會再把它的資料一起回捲，"
-                       "行為會回到 AI效應 5.x 的樣子。對絕大多數玩家沒有影響。"), "body")
+    t.insert("end", tr("安全。那份快照本來就是「用過即丟」——模組還原之後也會自己把它刪掉。"
+                       "唯一的差別是：當你去載入「更舊的存檔槽」時，模組不會再把它的資料一起回捲，"
+                       "行為回到 AI效應 5.x 的樣子。"), "ok")
     t.insert("end", "\n", "body")
     t.insert("end", tr("你自己的遊戲存檔（Bannerlord 的 .sav）完全不受影響，"
-                       "本工具備份中心裡的備份也完全不受影響。"), "ok")
+                       "備份中心裡的備份也完全不受影響。"), "ok")
 
     t.configure(state="disabled")
     ttk.Button(win, text=tr("關閉"), command=win.destroy,
@@ -285,17 +302,40 @@ def build_settings_tab(app, notebook: ttk.Notebook) -> None:
                  state="readonly", width=16).pack(side=tk.LEFT)
     ttk.Label(lang_row, text=tr("(重啟後生效 / Restart to apply)")).pack(side=tk.LEFT, padx=8)
 
+    # ── This tool's own campaign backup, before a destructive write ───────
+    camp_row = ttk.Frame(pref_frame)
+    camp_row.pack(fill=tk.X, padx=10, pady=3)
+    ttk.Label(camp_row, text=tr("戰役備份處理:"), width=20).pack(side=tk.LEFT)
+    app.campaign_backup_display_var = tk.StringVar(
+        value=bks.campaign_backup_label(app.settings.get("campaign_backup_policy")))
+    camp_combo = ttk.Combobox(camp_row, textvariable=app.campaign_backup_display_var,
+                              values=bks.campaign_backup_display_options(),
+                              state="readonly", width=32)
+    camp_combo.pack(side=tk.LEFT, padx=(0, 8))
+
+    camp_hint = ttk.Label(pref_frame, foreground=tcol("#6B5B3E"), justify="left",
+                          wraplength=560)
+    camp_hint.pack(fill=tk.X, padx=(160, 10), pady=(0, 4), anchor="w")
+
+    def _sync_camp_hint(*_a) -> None:
+        pid = bks.campaign_backup_from_label(app.campaign_backup_display_var.get())
+        camp_hint.config(text=bks.campaign_backup_hint(pid))
+
+    camp_combo.bind("<<ComboboxSelected>>", _sync_camp_hint)
+    _sync_camp_hint()
+
     # AI Influence 6.0+ restores its own per-slot snapshot over the campaign
-    # folder on load.  "存檔備份" here means *the mod's* backup, never this
-    # tool's — hence the explicit 說明 button next to it.
+    # folder on load.  Called 快照 rather than 備份 throughout: it belongs to the
+    # mod, and sharing the word with our Backup Center made this setting read as
+    # if it governed that — hence the 說明 button covering both.
     snap_row = ttk.Frame(pref_frame)
     snap_row.pack(fill=tk.X, padx=10, pady=3)
-    ttk.Label(snap_row, text=tr("存檔備份處理:"), width=14).pack(side=tk.LEFT)
+    ttk.Label(snap_row, text=tr("存檔快照處理:"), width=20).pack(side=tk.LEFT)
     app.snapshot_policy_display_var = tk.StringVar(
         value=svc_snapshot.policy_label(app.settings.get("snapshot_policy")))
     snap_combo = ttk.Combobox(snap_row, textvariable=app.snapshot_policy_display_var,
                               values=svc_snapshot.policy_display_options(),
-                              state="readonly", width=24)
+                              state="readonly", width=32)
     snap_combo.pack(side=tk.LEFT, padx=(0, 8))
     ttk.Button(snap_row, text=tr("ⓘ 說明"),
                command=lambda: _open_snapshot_help(app),
@@ -306,7 +346,7 @@ def build_settings_tab(app, notebook: ttk.Notebook) -> None:
     # survives, which the labels alone cannot convey.
     snap_hint = ttk.Label(pref_frame, foreground=tcol("#6B5B3E"), justify="left",
                           wraplength=560)
-    snap_hint.pack(fill=tk.X, padx=(122, 10), pady=(0, 4), anchor="w")
+    snap_hint.pack(fill=tk.X, padx=(160, 10), pady=(0, 4), anchor="w")
 
     def _sync_snap_hint(*_a) -> None:
         pid = svc_snapshot.policy_from_label(app.snapshot_policy_display_var.get())
@@ -332,14 +372,16 @@ def build_settings_tab(app, notebook: ttk.Notebook) -> None:
     # Save/cancel bar — shown only when a (non-theme) preference changed.
     _pref_base = {"sort": app.default_sort_var.get(), "camp": app.default_campaign_var.get(),
                   "lang": app.language_display_var.get(),
-                  "snap": app.snapshot_policy_display_var.get()}
+                  "snap": app.snapshot_policy_display_var.get(),
+                  "cbk": app.campaign_backup_display_var.get()}
     pref_bar = ttk.Frame(pref_frame)
 
     def _pref_changed():
         return (app.default_sort_var.get() != _pref_base["sort"]
                 or app.default_campaign_var.get() != _pref_base["camp"]
                 or app.language_display_var.get() != _pref_base["lang"]
-                or app.snapshot_policy_display_var.get() != _pref_base["snap"])
+                or app.snapshot_policy_display_var.get() != _pref_base["snap"]
+                or app.campaign_backup_display_var.get() != _pref_base["cbk"])
 
     def _refresh_pref_bar(*_a):
         if _pref_changed():
@@ -351,7 +393,8 @@ def build_settings_tab(app, notebook: ttk.Notebook) -> None:
         app.save_preferences()
         _pref_base.update(sort=app.default_sort_var.get(), camp=app.default_campaign_var.get(),
                           lang=app.language_display_var.get(),
-                          snap=app.snapshot_policy_display_var.get())
+                          snap=app.snapshot_policy_display_var.get(),
+                          cbk=app.campaign_backup_display_var.get())
         _refresh_pref_bar()
 
     def _pref_cancel():
@@ -359,11 +402,12 @@ def build_settings_tab(app, notebook: ttk.Notebook) -> None:
         app.default_campaign_var.set(_pref_base["camp"])
         app.language_display_var.set(_pref_base["lang"])
         app.snapshot_policy_display_var.set(_pref_base["snap"])
+        app.campaign_backup_display_var.set(_pref_base["cbk"])
         _refresh_pref_bar()
 
     ttk.Button(pref_bar, text=tr("儲存"), command=_pref_save, style="success.TButton").pack(side=tk.RIGHT, padx=(4, 0))
     ttk.Button(pref_bar, text=tr("取消"), command=_pref_cancel, style="secondary.TButton").pack(side=tk.RIGHT)
     for _v in (app.default_sort_var, app.default_campaign_var, app.language_display_var,
-               app.snapshot_policy_display_var):
+               app.snapshot_policy_display_var, app.campaign_backup_display_var):
         _v.trace_add("write", _refresh_pref_bar)
     _refresh_pref_bar()

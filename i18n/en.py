@@ -2390,4 +2390,102 @@ STRINGS = {
         'The restore target cannot contain the backup folder',
     '還原目標目前不存在，將會重新建立。':
         'The restore target does not exist yet and will be created.',
+
+    # ── v1.2.1：戰役備份／存檔快照 術語分離 ──────────────────────
+    '⚠ 保留 {n} 個存檔快照，這次的編輯可能在載入遊戲時被還原':
+        '⚠ Keeping {n} save snapshot(s) — this edit may be reverted when the game loads',
+    '⚠ 已停用戰役自動備份，這次寫入不會有備份':
+        '⚠ Campaign auto-backup is off — this write will not be backed up',
+    '✔ 儲存後會把 {n} 個存檔快照複製到備份中心，再清除':
+        '✔ {n} save snapshot(s) will be copied to the Backup Center, then cleared',
+    '✔ 寫入前會自動備份整個戰役資料夾':
+        '✔ The whole campaign folder will be backed up before writing',
+    '三個選項的差別':
+        'How the three options differ',
+    '不留副本，直接刪除。編輯一定生效，但遊戲的逐存檔回溯能力會消失。':
+        'Deleted outright, no copy kept. Your edits always stick, but the game loses its per-save rollback.',
+    '不自動備份。省下磁碟空間與等待時間，但寫錯時沒有可還原的備份，建議只在你自行手動備份時才停用。':
+        'No automatic backup. Saves disk space and time, but a mistaken write cannot be undone — only turn this off if you back up yourself.',
+    '也就是說：你在主選單用本工具做的編輯，會在下次載入遊戲時被還原掉，就像沒改過一樣；新增的角色檔也會被一併刪除。':
+        'So edits you make at the main menu are reverted the next time you load, as if you had never made them — and character files you created are deleted too.',
+    '以下動態事件／聲明變更將寫入（刪除事件會一併清除 NPC JSON 中的引用）：':
+        'The following dynamic event / statement changes will be written (deleting an event also clears its references in NPC JSON):',
+    '以下疾病變更將寫入 disease_instances.json 與相關角色 JSON：':
+        'The following disease changes will be written to disease_instances.json and the related character JSON:',
+    '以下訊息／秘密／擁有者變更將寫入：':
+        'The following info / secret / owner changes will be written:',
+    '你自己的遊戲存檔（Bannerlord 的 .sav）完全不受影響，備份中心裡的備份也完全不受影響。':
+        'Your own game saves (Bannerlord .sav files) are completely unaffected, and so is everything in the Backup Center.',
+    '依偏好設定保留存檔快照。《AI效應》載入戰役時會用快照覆蓋整個戰役資料夾，把這次的編輯還原掉。（可在 設定 → 偏好設定 → 存檔快照處理 調整）':
+        'Save snapshots are kept, per your preference. AI Influence overwrites the whole campaign folder with the snapshot when it loads, reverting this edit. (Change it under Settings → Preferences → Save snapshots.)',
+    '停用自動備份':
+        'Auto-backup off',
+    '停用：保留快照':
+        'Disabled: keep snapshots',
+    '備份存放於備份中心（類型＝戰役），寫錯時可從那裡還原。（可在 設定 → 偏好設定 → 戰役備份處理 調整）':
+        'The backup goes to the Backup Center (type: Campaign), so a mistaken write can be restored from there. (Change it under Settings → Preferences → Campaign backups.)',
+    '儲存後將直接清除 {n} 個存檔快照':
+        '{n} save snapshot(s) will be cleared after saving',
+    '兩件不同的事，別搞混':
+        'Two different things — do not mix them up',
+    '刪除前先把存檔快照複製進備份中心（類型＝存檔快照），編輯一定生效，日後也能從備份中心還原回舊的時間點。':
+        'Copies the save snapshots into the Backup Center (type: Save snapshot) before deleting them, so your edits stick and you can still restore an earlier point in time later.',
+    '啟用自動備份':
+        'Auto-backup on',
+    '因為載入存檔時，模組會用快照「覆蓋」整個戰役資料夾——先清空、再整包拷回。':
+        'Because on load the mod OVERWRITES the whole campaign folder with the snapshot — clearing it first, then copying everything back.',
+    '存檔快照':
+        'Save snapshot',
+    '存檔快照是《AI效應》在遊戲存檔時產生的，載入時會覆蓋整個戰役資料夾；不清除的話這次的編輯會被還原掉。若想保留回溯能力，可改用「複製到備份中心後清除」。':
+        'Save snapshots are written by AI Influence whenever you save, and overwrite the whole campaign folder on load — leave them and this edit is reverted. To keep the rollback, switch to "Copy to Backup Center, then clear".',
+    '存檔快照是《AI效應》在遊戲存檔時產生的，載入時會覆蓋整個戰役資料夾；不清除的話這次的編輯會被還原掉。複製到備份中心後，日後仍可從那裡還原回舊的時間點。':
+        'Save snapshots are written by AI Influence whenever you save, and overwrite the whole campaign folder on load — leave them and this edit is reverted. Once copied to the Backup Center you can still restore an earlier point in time from there.',
+    '存檔快照處理:':
+        'Save snapshots:',
+    '存檔快照（save_snapshots）':
+        'Save snapshot (save_snapshots)',
+    '安全。那份快照本來就是「用過即丟」——模組還原之後也會自己把它刪掉。唯一的差別是：當你去載入「更舊的存檔槽」時，模組不會再把它的資料一起回捲，行為回到 AI效應 5.x 的樣子。':
+        'Yes. The snapshot is single-use by design — the mod deletes it itself after restoring. The only difference is that loading an OLDER save slot no longer rolls the mod data back with it, which is how AI Influence 5.x behaved.',
+    '完全不動存檔快照，保留遊戲的逐存檔回溯能力。注意：在主選單所做的編輯，可能在載入遊戲時被還原。':
+        'Leaves save snapshots completely alone, keeping the per-save rollback. Note: edits made at the main menu may be reverted when you load.',
+    '完全不動快照，保留遊戲原本的回溯行為。代價是你在主選單做的編輯可能在載入時被還原——適合只在遊戲執行中做「新增」類編輯的玩家。':
+        "Leaves snapshots completely alone, keeping the game's own rollback. The cost is that main-menu edits may be reverted on load — suitable if you only ever *add* content while the game is running.",
+    '寫入後將無法從備份中心還原到寫入前的狀態。（可在 設定 → 偏好設定 → 戰役備份處理 重新啟用）':
+        'After this write you will not be able to restore the previous state from the Backup Center. (Re-enable under Settings → Preferences → Campaign backups.)',
+    '寫入戰役後直接刪除該戰役的存檔快照。編輯一定生效，但遊戲的逐存檔回溯能力會消失。':
+        "Deletes that campaign's save snapshots after a write. Your edits always stick, but the game loses its per-save rollback.",
+    '將寫入 {n_files} 個角色檔案：':
+        '{n_files} character file(s) will be written:',
+    '已停用戰役自動備份，直接寫入（{reason}）':
+        'Campaign auto-backup is off — writing directly ({reason})',
+    '已將存檔快照複製到備份中心：{v0}':
+        'Save snapshots copied to the Backup Center: {v0}',
+    '已清除 {n} 個存檔快照（save_snapshots），編輯不會在載入時被還原':
+        'Cleared {n} save snapshot(s) — your edits will not be reverted on load',
+    '戰役備份 與 存檔快照 — 說明':
+        'Campaign backups and save snapshots — help',
+    '戰役備份處理:':
+        'Campaign backups:',
+    '批量寫入或刪除前，先把整個戰役資料夾複製到備份中心，出錯時可從備份中心還原。':
+        'Copies the whole campaign folder to the Backup Center before a batch write or delete, so mistakes can be restored from there.',
+    '此戰役仍有存檔快照（依偏好設定保留）；在主選單所做的編輯，可能在載入遊戲時被還原':
+        'This campaign still has save snapshots (kept per your preference); edits made at the main menu may be reverted when the game loads',
+    '清除存檔快照失敗：{v0}':
+        'Could not clear the save snapshots: {v0}',
+    '清除快照安全嗎？':
+        'Is clearing snapshots safe?',
+    '為什麼存檔快照需要「處理」？':
+        'Why do save snapshots need handling?',
+    '直接清除快照':
+        'Clear snapshots outright',
+    '複製到備份中心後清除':
+        'Copy to Backup Center, then clear',
+    '複製存檔快照到備份中心失敗，已保留未清除：{v0}':
+        'Could not copy the save snapshots to the Backup Center, so they were left in place: {v0}',
+    '（預設）先把快照複製進備份中心（類型＝存檔快照），再刪掉原本的。編輯一定生效，而且日後想回到舊的時間點，仍可從備份中心還原。什麼都不會失去，所以是預設值。':
+        '(Default) Copies the snapshots into the Backup Center (type: Save snapshot), then deletes the originals. Your edits stick, and you can still restore an earlier point in time from the Backup Center. Nothing is lost, which is why it is the default.',
+    '＝《AI效應》模組自己的東西（save_snapshots 資料夾）。你在遊戲中每次存檔，模組就把整個戰役資料夾複製一份進去，依存檔槽分開存放。':
+        ' — belongs to AI Influence (the save_snapshots folder). Every time you save in game, the mod copies the whole campaign folder in there, one copy per save slot.',
+    '＝本工具自己的備份。批量寫入或刪除前，把整個戰役資料夾複製到備份中心，出錯時可以還原回來。由你控制。':
+        " — this tool's own backup. Before a batch write or delete it copies the whole campaign folder to the Backup Center, so mistakes can be undone. Under your control.",
 }

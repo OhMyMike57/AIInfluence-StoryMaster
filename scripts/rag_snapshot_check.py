@@ -255,32 +255,103 @@ check("label round-trips", S.policy_from_label(S.policy_label(S.POLICY_AUTO_CLEA
 check("unknown label → default", S.policy_from_label("no such option"), S.DEFAULT_POLICY)
 check("dropdown lists every policy", len(S.policy_display_options()), len(S.POLICY_IDS))
 
-with tempfile.TemporaryDirectory() as td:
-    camp = Path(td)
-    slot = camp / "save_snapshots" / "save003"
-    slot.mkdir(parents=True)
-    (slot / "hero.json").write_text("{}", encoding="utf-8")
+def _make_slot(camp: Path, slot="save003"):
+    d = camp / "save_snapshots" / slot
+    d.mkdir(parents=True)
+    (d / "hero.json").write_text("{}", encoding="utf-8")
+    return d
 
-    # A conversation edit — the immediate-write path that never opens a dialog.
+
+def _wire_backup_center(app, backup_root: Path):
+    """Give the fake app what the copy-then-clear default needs.
+
+    Without these the copy step raises and — correctly — the purge is skipped, so
+    a test that omits them is really testing the failure path.
+    """
+    class _Var:
+        def __init__(self, v): self._v = str(v)
+        def get(self): return self._v
+    app.backup_dir_var = _Var(backup_root)
+    app.refresh_backup_center = lambda *a, **k: None
+
+
+# The default policy: copy into the Backup Center, then clear.
+with tempfile.TemporaryDirectory() as td:
+    camp = Path(td) / "campaign"
+    camp.mkdir()
+    backups = Path(td) / "backups"
+    _make_slot(camp)
+    _wire_backup_center(app, backups)
+
     logs.clear()
-    app.settings = {}
+    app.settings = {}                      # nothing stored → the default
     _write_character(camp, "sid9", ["edited line"])
-    check("auto-clear ran without any dialog", S.list_snapshots(camp), [])
-    check("purge was logged", any("save_snapshots" in m for _, m in logs), True)
+    check("default policy cleared the snapshots", S.list_snapshots(camp), [])
+    check("default policy copied them to the Backup Center first",
+          any((backups / "snapshots").glob("*/save003/hero.json")) if (backups / "snapshots").is_dir() else False,
+          True)
+    check("the copy was logged", any("備份中心" in m or "Backup Center" in m
+                                     for _, m in logs), True)
+    check("the purge was logged", any("save_snapshots" in m for _, m in logs), True)
 
     # Once cleared, later writes stay quiet instead of re-logging every time.
     logs.clear()
     _write_character(camp, "sid9", ["edited twice"])
-    check("nothing more to purge → silent", [m for _, m in logs if "save_snapshots" in m], [])
+    check("nothing more to purge → silent",
+          [m for _, m in logs if "save_snapshots" in m], [])
 
+# auto_clear: purge, no copy.
 with tempfile.TemporaryDirectory() as td:
-    camp = Path(td)
-    slot = camp / "save_snapshots" / "save003"
-    slot.mkdir(parents=True)
-    (slot / "hero.json").write_text("{}", encoding="utf-8")
-    app.settings = {"snapshot_policy": "leave_alone"}   # a future/unknown policy
+    camp = Path(td) / "campaign"
+    camp.mkdir()
+    backups = Path(td) / "backups"
+    _make_slot(camp)
+    _wire_backup_center(app, backups)
+    app.settings = {"snapshot_policy": S.POLICY_AUTO_CLEAR}
     _write_character(camp, "sid9", ["x"])
-    check("unknown policy normalises to auto-clear", S.list_snapshots(camp), [])
+    check("auto_clear cleared the snapshots", S.list_snapshots(camp), [])
+    check("auto_clear made no backup", (backups / "snapshots").is_dir(), False)
+
+# keep: leave them entirely alone.
+with tempfile.TemporaryDirectory() as td:
+    camp = Path(td) / "campaign"
+    camp.mkdir()
+    backups = Path(td) / "backups"
+    _make_slot(camp)
+    _wire_backup_center(app, backups)
+    app.settings = {"snapshot_policy": S.POLICY_KEEP}
+    logs.clear()
+    _write_character(camp, "sid9", ["x"])
+    check("keep left the snapshot in place", len(S.list_snapshots(camp)), 1)
+    check("keep warned that edits may be reverted",
+          any(lv == "WARNING" for lv, _ in logs), True)
+
+# A failed copy must NOT lead to a purge — deleting the snapshots after failing
+# to preserve them would destroy exactly what the player asked to keep.
+with tempfile.TemporaryDirectory() as td:
+    camp = Path(td) / "campaign"
+    camp.mkdir()
+    _make_slot(camp)
+    app.settings = {"snapshot_policy": S.POLICY_BACKUP_THEN_CLEAR}
+    if hasattr(app, "backup_dir_var"):
+        del app.backup_dir_var             # make the copy step fail
+    logs.clear()
+    _write_character(camp, "sid9", ["x"])
+    check("copy failed → snapshots kept", len(S.list_snapshots(camp)), 1)
+    check("copy failure logged as ERROR", any(lv == "ERROR" for lv, _ in logs), True)
+
+# An unknown/future policy id falls back to the default, not to whatever used to
+# be the default.
+with tempfile.TemporaryDirectory() as td:
+    camp = Path(td) / "campaign"
+    camp.mkdir()
+    backups = Path(td) / "backups"
+    _make_slot(camp)
+    _wire_backup_center(app, backups)
+    app.settings = {"snapshot_policy": "leave_alone"}
+    _write_character(camp, "sid9", ["x"])
+    check("unknown policy normalises to the default (copy then clear)",
+          (S.list_snapshots(camp), (backups / "snapshots").is_dir()), ([], True))
 
 app.settings = {}
 

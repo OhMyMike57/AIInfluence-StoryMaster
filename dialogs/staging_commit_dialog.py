@@ -12,6 +12,7 @@ from tkinter import ttk
 from typing import Any, Callable, Dict, List, Tuple
 
 from i18n import tr
+from services import backup_service as svc_backup
 from services import snapshot_service as svc_snapshot
 from services.diff_summary import field_label, summarize_change
 from widgets.window_center import center_window
@@ -130,34 +131,69 @@ def open_diff_review_dialog(app, *, title: str, header: str,
     txt.configure(state="disabled")
 
 
-def snapshot_purge_option(app, on_confirm: Callable[[], None]
+def backup_status_options(app, on_confirm: Callable[[], None]
                           ) -> Tuple[List[Dict[str, Any]], Callable[[], None]]:
-    """Tell the user the mod's save-snapshots will be cleared by this save.
+    """Rows telling the user what this save does about backups, before they commit.
 
-    The clearing itself is done by ``app._apply_snapshot_policy`` at the write
-    choke point, so it covers the immediate-write paths (conversation editing,
-    memory page…) that never open a dialog.  That makes a per-save checkbox
-    here a lie — unticking it could not stop the purge — so this contributes an
-    informational row instead, and *on_confirm* is passed straight through.
+    Two independent things, and players kept conflating them while both were
+    called "備份":
 
-    Returns ``(options, on_confirm)`` for :func:`open_diff_review_dialog`.
-    Nothing is shown when the policy is off, or when the campaign has no
-    snapshots (5.x saves, or already cleared this session).
+    * **戰役備份** — this tool's own copy of the campaign folder, taken before the
+      write, restorable from the Backup Center;
+    * **存檔快照** — the mod's ``save_snapshots``, which would otherwise revert the
+      edit on the next load.
+
+    Both are informational rather than checkboxes: the campaign backup is taken by
+    the caller before it opens this dialog's confirm path, and the snapshot handling
+    runs at the write choke point (so it also covers the immediate-write paths that
+    never open a dialog). A per-save tick box would be a lie in both cases.
+
+    Returns ``(options, on_confirm)`` for :func:`open_diff_review_dialog`;
+    *on_confirm* is passed straight through.
     """
-    campaign_dir = getattr(app, "campaign_dir", None)
-    policy = svc_snapshot.normalize_policy((getattr(app, "settings", None) or {}).get("snapshot_policy"))
-    if policy != svc_snapshot.POLICY_AUTO_CLEAR:
-        return [], on_confirm
-    snapshots = svc_snapshot.list_snapshots(campaign_dir)
-    if not snapshots:
-        return [], on_confirm
+    settings = getattr(app, "settings", None) or {}
+    options: List[Dict[str, Any]] = []
 
-    options = [{
-        "label": tr("儲存後將清除此戰役的存檔備份（{n} 個存檔槽）").format(n=len(snapshots)),
-        "hint": tr("這是《AI效應》模組在遊戲存檔時自動產生的備份，載入時會覆蓋整個戰役資料夾；"
-                   "不清除的話，這次的編輯會在下次載入遊戲時被還原掉。"
-                   "（與本工具的備份中心無關；可在 設定 → 偏好設定 → 存檔備份處理 調整）"),
-    }]
+    # ── This tool's campaign backup ──────────────────────────────────────
+    if svc_backup.campaign_backup_enabled(settings.get("campaign_backup_policy")):
+        options.append({
+            "label": tr("✔ 寫入前會自動備份整個戰役資料夾"),
+            "hint": tr("備份存放於備份中心（類型＝戰役），寫錯時可從那裡還原。"
+                       "（可在 設定 → 偏好設定 → 戰役備份處理 調整）"),
+        })
+    else:
+        options.append({
+            "label": tr("⚠ 已停用戰役自動備份，這次寫入不會有備份"),
+            "hint": tr("寫入後將無法從備份中心還原到寫入前的狀態。"
+                       "（可在 設定 → 偏好設定 → 戰役備份處理 重新啟用）"),
+        })
+
+    # ── The mod's save snapshots ─────────────────────────────────────────
+    campaign_dir = getattr(app, "campaign_dir", None)
+    policy = svc_snapshot.normalize_policy(settings.get("snapshot_policy"))
+    snapshots = svc_snapshot.list_snapshots(campaign_dir)
+    if snapshots:
+        n = len(snapshots)
+        if policy == svc_snapshot.POLICY_BACKUP_THEN_CLEAR:
+            options.append({
+                "label": tr("✔ 儲存後會把 {n} 個存檔快照複製到備份中心，再清除").format(n=n),
+                "hint": tr("存檔快照是《AI效應》在遊戲存檔時產生的，載入時會覆蓋整個戰役資料夾；"
+                           "不清除的話這次的編輯會被還原掉。複製到備份中心後，"
+                           "日後仍可從那裡還原回舊的時間點。"),
+            })
+        elif policy == svc_snapshot.POLICY_AUTO_CLEAR:
+            options.append({
+                "label": tr("儲存後將直接清除 {n} 個存檔快照").format(n=n),
+                "hint": tr("存檔快照是《AI效應》在遊戲存檔時產生的，載入時會覆蓋整個戰役資料夾；"
+                           "不清除的話這次的編輯會被還原掉。"
+                           "若想保留回溯能力，可改用「複製到備份中心後清除」。"),
+            })
+        else:
+            options.append({
+                "label": tr("⚠ 保留 {n} 個存檔快照，這次的編輯可能在載入遊戲時被還原").format(n=n),
+                "hint": tr("依偏好設定保留存檔快照。《AI效應》載入戰役時會用快照覆蓋整個戰役資料夾，"
+                           "把這次的編輯還原掉。（可在 設定 → 偏好設定 → 存檔快照處理 調整）"),
+            })
     return options, on_confirm
 
 
@@ -165,11 +201,11 @@ def open_staging_commit_dialog(app, diff_items: List[Dict[str, Any]],
                                on_confirm: Callable[[], None]) -> None:
     """*diff_items*: ``[{path, name, field, old, new}]`` from DocStaging.diff_all."""
     n_files = len({str(it.get("name") or it.get("path")) for it in diff_items})
-    options, confirm = snapshot_purge_option(app, on_confirm)
+    options, confirm = backup_status_options(app, on_confirm)
     open_diff_review_dialog(
         app,
         title=tr("儲存暫存變更"),
-        header=tr("將寫入 {n_files} 個角色檔案（寫入前自動備份）：").format(n_files=n_files),
+        header=tr("將寫入 {n_files} 個角色檔案：").format(n_files=n_files),
         diff_items=diff_items,
         confirm_label=tr("💾 全部儲存（{n_files} 檔）").format(n_files=n_files),
         on_confirm=confirm,

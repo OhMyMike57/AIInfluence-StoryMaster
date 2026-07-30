@@ -39,23 +39,30 @@ from typing import List, Optional, Tuple
 SNAPSHOTS_DIR_NAME = "save_snapshots"
 SNAPSHOT_META_NAME = "snapshot_meta.json"
 
-# ── Handling policy (設定 → 偏好設定 → 存檔備份處理) ──────────────────────
+# ── Handling policy (設定 → 偏好設定 → 存檔快照處理) ──────────────────────
+#
+# Terminology: what the mod writes into ``save_snapshots`` is a **快照**
+# (snapshot); a **備份** is always this tool's own copy in the Backup Center.
+# Both used to be called "備份", which made the setting read as if it governed
+# the Backup Center.
 #
 # Stored values are stable identifiers and labels are translated strings, so
 # adding a policy later never breaks saved settings.
 #
-#   auto_clear         delete the snapshots (default; edits always stick)
-#   backup_then_clear  copy them into the Backup Center first, then delete —
-#                      keeps the mod's per-slot rollback available as a restorable
-#                      backup instead of losing it outright
+#   backup_then_clear  copy the snapshots into the Backup Center, then delete —
+#                      edits stick AND the mod's per-slot rollback survives as
+#                      something restore_backup can put back. The default: it is
+#                      the only option that loses nothing.
+#   auto_clear         delete them outright (edits stick, rollback is gone)
 #   keep               do nothing; the player keeps the mod's rollback behaviour
 #                      and accepts that main-menu edits may be reverted on load
 POLICY_AUTO_CLEAR = "auto_clear"
 POLICY_BACKUP_THEN_CLEAR = "backup_then_clear"
 POLICY_KEEP = "keep"
-DEFAULT_POLICY = POLICY_AUTO_CLEAR
+DEFAULT_POLICY = POLICY_BACKUP_THEN_CLEAR
 
-POLICY_IDS = (POLICY_AUTO_CLEAR, POLICY_BACKUP_THEN_CLEAR, POLICY_KEEP)
+# Dropdown order — the recommended option first.
+POLICY_IDS = (POLICY_BACKUP_THEN_CLEAR, POLICY_AUTO_CLEAR, POLICY_KEEP)
 
 #: Policies under which the tool removes the snapshots after a write.
 CLEARING_POLICIES = (POLICY_AUTO_CLEAR, POLICY_BACKUP_THEN_CLEAR)
@@ -86,11 +93,11 @@ def policy_label(value: Optional[str]) -> str:
     from i18n import tr
     pid = normalize_policy(value)
     if pid == POLICY_AUTO_CLEAR:
-        return tr("自動清除存檔備份")
+        return tr("直接清除快照")
     if pid == POLICY_BACKUP_THEN_CLEAR:
-        return tr("先備份再清除（可還原）")
+        return tr("複製到備份中心後清除")
     if pid == POLICY_KEEP:
-        return tr("停用：保留存檔備份")
+        return tr("停用：保留快照")
     return pid
 
 
@@ -99,11 +106,13 @@ def policy_hint(value: Optional[str]) -> str:
     from i18n import tr
     pid = normalize_policy(value)
     if pid == POLICY_AUTO_CLEAR:
-        return tr("寫入戰役後刪除該戰役的 save_snapshots，確保編輯不會在載入時被還原。")
+        return tr("寫入戰役後直接刪除該戰役的存檔快照。編輯一定生效，"
+                  "但遊戲的逐存檔回溯能力會消失。")
     if pid == POLICY_BACKUP_THEN_CLEAR:
-        return tr("刪除前先把 save_snapshots 複製到備份中心，日後可從備份中心還原回舊的時間點。")
+        return tr("刪除前先把存檔快照複製進備份中心（類型＝存檔快照），"
+                  "編輯一定生效，日後也能從備份中心還原回舊的時間點。")
     if pid == POLICY_KEEP:
-        return tr("完全不動 save_snapshots，保留遊戲的逐存檔回溯能力。"
+        return tr("完全不動存檔快照，保留遊戲的逐存檔回溯能力。"
                   "注意：在主選單所做的編輯，可能在載入遊戲時被還原。")
     return ""
 

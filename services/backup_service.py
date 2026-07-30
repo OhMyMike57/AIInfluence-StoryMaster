@@ -78,6 +78,65 @@ def ensure_dir(path: Path) -> None:
     Path(path).mkdir(parents=True, exist_ok=True)
 
 
+# ── Campaign auto-backup policy (設定 → 偏好設定 → 戰役備份處理) ──────────
+#
+# Governs *this tool's* own safety copy, taken before a destructive write. Kept
+# separate from the mod's save-snapshot handling (see ``snapshot_service``), which
+# is a different thing owned by a different program — the two were easy to
+# confuse while both were called "備份".
+#
+# Stored values are stable identifiers; labels are translated at display time.
+CAMPAIGN_BACKUP_ON = "enabled"
+CAMPAIGN_BACKUP_OFF = "disabled"
+DEFAULT_CAMPAIGN_BACKUP = CAMPAIGN_BACKUP_ON
+
+CAMPAIGN_BACKUP_IDS = (CAMPAIGN_BACKUP_ON, CAMPAIGN_BACKUP_OFF)
+
+
+def normalize_campaign_backup(value: Optional[str]) -> str:
+    """Return a known policy id, falling back to the default (backups on)."""
+    return value if value in CAMPAIGN_BACKUP_IDS else DEFAULT_CAMPAIGN_BACKUP
+
+
+def campaign_backup_enabled(value: Optional[str]) -> bool:
+    return normalize_campaign_backup(value) == CAMPAIGN_BACKUP_ON
+
+
+def campaign_backup_label(value: Optional[str]) -> str:
+    """Translated display label. Literal ``tr()`` calls so the coverage gate can
+    see the keys and the display audit stays free of ``tr(variable)`` leaks."""
+    from i18n import tr
+    pid = normalize_campaign_backup(value)
+    if pid == CAMPAIGN_BACKUP_ON:
+        return tr("啟用自動備份")
+    if pid == CAMPAIGN_BACKUP_OFF:
+        return tr("停用自動備份")
+    return pid
+
+
+def campaign_backup_hint(value: Optional[str]) -> str:
+    from i18n import tr
+    pid = normalize_campaign_backup(value)
+    if pid == CAMPAIGN_BACKUP_ON:
+        return tr("批量寫入或刪除前，先把整個戰役資料夾複製到備份中心，"
+                  "出錯時可從備份中心還原。")
+    if pid == CAMPAIGN_BACKUP_OFF:
+        return tr("不自動備份。省下磁碟空間與等待時間，但寫錯時沒有可還原的備份，"
+                  "建議只在你自行手動備份時才停用。")
+    return ""
+
+
+def campaign_backup_display_options() -> List[str]:
+    return [campaign_backup_label(pid) for pid in CAMPAIGN_BACKUP_IDS]
+
+
+def campaign_backup_from_label(label: str) -> str:
+    for pid in CAMPAIGN_BACKUP_IDS:
+        if label == campaign_backup_label(pid):
+            return pid
+    return DEFAULT_CAMPAIGN_BACKUP
+
+
 # ── Timestamp / name helpers ────────────────────────────────────────────
 
 def _timestamp() -> str:

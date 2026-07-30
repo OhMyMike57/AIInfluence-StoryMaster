@@ -50,6 +50,8 @@ from services.backup_service import (
     backup_campaign_dir,
     backup_snapshots,
     backup_tool_config,
+    campaign_backup_enabled as svc_campaign_backup_enabled,
+    campaign_backup_from_label as svc_campaign_backup_from_label,
 )
 from services.world_service import (
     world_paths_for_app,
@@ -1687,16 +1689,16 @@ class AIInfluenceStoryToolsApp:
             return
         if confirm:
             from dialogs.staging_commit_dialog import (
-                open_diff_review_dialog, snapshot_purge_option,
+                open_diff_review_dialog, backup_status_options,
             )
             # world_info/world_secrets live under prompts/ (which the mod's
             # snapshot skips), but owner changes write character JSONs, and those
             # do get reverted — so this flow needs the purge option too.
-            _opts, _confirm = snapshot_purge_option(self, self._world_write)
+            _opts, _confirm = backup_status_options(self, self._world_write)
             open_diff_review_dialog(
                 self,
                 title=tr("儲存訊息與秘密變更"),
-                header=tr("以下訊息／秘密／擁有者變更將寫入（寫入前自動備份）："),
+                header=tr("以下訊息／秘密／擁有者變更將寫入："),
                 diff_items=self._world_build_diff_items(),
                 confirm_label=tr("💾 儲存"),
                 on_confirm=_confirm,
@@ -1885,6 +1887,9 @@ class AIInfluenceStoryToolsApp:
         if hasattr(self, "snapshot_policy_display_var"):
             self.settings["snapshot_policy"] = svc_snapshot.policy_from_label(
                 self.snapshot_policy_display_var.get())
+        if hasattr(self, "campaign_backup_display_var"):
+            self.settings["campaign_backup_policy"] = svc_campaign_backup_from_label(
+                self.campaign_backup_display_var.get())
         # default_campaign_var holds the display string; store the real id.
         self.settings["default_campaign"] = self._campaign_id_from_display(self.default_campaign_var.get().strip())
         selected_display = getattr(self, "language_display_var", self.language_var).get()
@@ -3772,14 +3777,14 @@ class AIInfluenceStoryToolsApp:
             return False
         if confirm:
             from dialogs.staging_commit_dialog import (
-                open_diff_review_dialog, snapshot_purge_option,
+                open_diff_review_dialog, backup_status_options,
             )
             rows = self._disease_build_diff_items()
-            _opts, _confirm = snapshot_purge_option(self, self._disease_write)
+            _opts, _confirm = backup_status_options(self, self._disease_write)
             open_diff_review_dialog(
                 self,
                 title=tr("儲存疾病變更"),
-                header=tr("以下疾病變更將寫入 disease_instances.json 與相關角色 JSON（寫入前自動備份）："),
+                header=tr("以下疾病變更將寫入 disease_instances.json 與相關角色 JSON："),
                 diff_items=rows,
                 confirm_label=tr("💾 儲存"),
                 on_confirm=_confirm,
@@ -4346,13 +4351,13 @@ class AIInfluenceStoryToolsApp:
 
         if confirm:
             from dialogs.staging_commit_dialog import (
-                open_diff_review_dialog, snapshot_purge_option,
+                open_diff_review_dialog, backup_status_options,
             )
-            _opts, _confirm = snapshot_purge_option(self, self._dyn_write)
+            _opts, _confirm = backup_status_options(self, self._dyn_write)
             open_diff_review_dialog(
                 self,
                 title=tr("儲存動態事件變更"),
-                header=tr("以下動態事件／聲明變更將寫入（刪除事件會一併清除 NPC JSON 中的引用；寫入前自動備份）："),
+                header=tr("以下動態事件／聲明變更將寫入（刪除事件會一併清除 NPC JSON 中的引用）："),
                 diff_items=self._dyn_build_diff_items(),
                 confirm_label=tr("💾 儲存"),
                 on_confirm=_confirm,
@@ -4931,6 +4936,15 @@ class AIInfluenceStoryToolsApp:
             self.log(tr("備份失敗：{v0}").format(v0=str(e)), "ERROR")
             messagebox.showerror(tr("備份失敗"), str(e))
 
+    def campaign_backup_is_on(self) -> bool:
+        """True when 戰役備份處理 is set to back up before destructive writes.
+
+        Read at call time rather than cached: the preference can change between
+        two saves in one session.
+        """
+        return svc_campaign_backup_enabled(
+            (getattr(self, "settings", None) or {}).get("campaign_backup_policy"))
+
     def _auto_backup_campaign(self, reason: str) -> bool:
         """Back up the whole campaign folder before a destructive write.
 
@@ -4938,9 +4952,15 @@ class AIInfluenceStoryToolsApp:
         swallowed) so a missed safety backup is visible. Passing paths through
         ``Path`` here is what the old inline calls got wrong — they handed the
         service a raw string and the resulting exception was eaten.
+
+        Returns False when the user turned 戰役備份處理 off; callers treat the
+        return value as "was a backup taken", never as "may I proceed".
         """
         campaign = getattr(self, "campaign_dir", None)
         if not campaign or not Path(campaign).is_dir():
+            return False
+        if not self.campaign_backup_is_on():
+            self.log(tr("已停用戰役自動備份，直接寫入（{reason}）").format(reason=reason), "INFO")
             return False
         try:
             backup_campaign_dir(Path(campaign), Path(self.backup_dir_var.get()))
@@ -5053,13 +5073,19 @@ class AIInfluenceStoryToolsApp:
         a confirm dialog — because a snapshot left behind silently reverts those
         edits the next time the player loads the game.
 
-        Three policies (設定 → 偏好設定 → 存檔備份處理):
-        ``keep`` leaves them alone, ``backup_then_clear`` copies them into the
-        Backup Center first, ``auto_clear`` (default) just removes them.
+        Three policies (設定 → 偏好設定 → 存檔快照處理):
+        ``keep`` leaves them alone, ``backup_then_clear`` (default) copies them
+        into the Backup Center first, ``auto_clear`` just removes them.
 
         Cheap to call repeatedly: once purged there is nothing left to find, so
         later writes in the same session cost one directory listing.
         """
+        # Nothing to handle → do nothing at all. Checked before the policy so a
+        # 5.x campaign (or one already cleared this session) never touches the
+        # Backup Center, and never logs about work it did not need to do.
+        if not svc_snapshot.has_snapshots(campaign_dir):
+            return
+
         policy = svc_snapshot.normalize_policy(self.settings.get("snapshot_policy"))
         if not svc_snapshot.clears_snapshots(policy):
             self._warn_snapshots_kept_once(campaign_dir)
@@ -5071,29 +5097,28 @@ class AIInfluenceStoryToolsApp:
             try:
                 saved = backup_snapshots(campaign_dir, Path(self.backup_dir_var.get()))
             except Exception as exc:
-                self.log(tr("備份戰役自動備份失敗，已保留未清除：{v0}").format(v0=str(exc)), "ERROR")
+                self.log(tr("複製存檔快照到備份中心失敗，已保留未清除：{v0}").format(v0=str(exc)), "ERROR")
                 return
             if saved is not None:
-                self.log(tr("已將 save_snapshots 備份至：{v0}").format(v0=str(saved)), "INFO")
+                self.log(tr("已將存檔快照複製到備份中心：{v0}").format(v0=str(saved)), "INFO")
                 self.refresh_backup_center()
 
         removed, errors = svc_snapshot.purge_snapshots(campaign_dir)
         if removed:
             self.log(
-                tr("已清除 {n} 個戰役自動備份（save_snapshots），編輯不會在載入時被還原")
+                tr("已清除 {n} 個存檔快照（save_snapshots），編輯不會在載入時被還原")
                 .format(n=removed), "INFO")
         for err in errors:
-            self.log(tr("清除戰役自動備份失敗：{v0}").format(v0=err), "ERROR")
+            self.log(tr("清除存檔快照失敗：{v0}").format(v0=err), "ERROR")
 
     def _warn_snapshots_kept_once(self, campaign_dir: Path) -> None:
         """Under the ``keep`` policy, say once per campaign that edits may revert.
 
         Once per campaign per session: this runs on *every* write, and a warning
         on each keystroke-sized save would be worse than the risk it describes.
+        The caller has already established that snapshots exist.
         """
         try:
-            if not svc_snapshot.has_snapshots(campaign_dir):
-                return
             seen = getattr(self, "_snapshot_keep_warned", None)
             if seen is None:
                 seen = self._snapshot_keep_warned = set()
@@ -5102,7 +5127,7 @@ class AIInfluenceStoryToolsApp:
                 return
             seen.add(key)
             self.log(
-                tr("此戰役仍有 save_snapshots（依偏好設定保留）；在主選單所做的編輯，"
+                tr("此戰役仍有存檔快照（依偏好設定保留）；在主選單所做的編輯，"
                    "可能在載入遊戲時被還原"), "WARNING")
         except Exception:
             pass   # a warning must never break a successful write

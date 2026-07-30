@@ -283,7 +283,59 @@ def test_same_second_collision(tmp: Path):
     check("config backups also stay separate", Path(c1) != Path(c2))
 
 
+# ── 9. the two policies stay distinct ───────────────────────────────────
+
+def test_policies():
+    """戰役備份 (ours) and 存檔快照 (the mod's) are separate settings with separate
+    vocabularies — they were both called 備份 until 1.2.1, which made the snapshot
+    dropdown read as if it governed the Backup Center."""
+    print("\n[campaign-backup and snapshot policies are distinct]")
+    from services import snapshot_service as S
+    from i18n import set_lang
+    set_lang("zh_TW")
+
+    check("snapshot default is backup-then-clear",
+          S.DEFAULT_POLICY == S.POLICY_BACKUP_THEN_CLEAR)
+    check("recommended option is listed first",
+          S.POLICY_IDS[0] == S.POLICY_BACKUP_THEN_CLEAR)
+    check("unknown stored value falls back to the default",
+          S.normalize_policy("nonsense") == S.POLICY_BACKUP_THEN_CLEAR)
+    check("an explicitly stored old value is respected",
+          S.normalize_policy("auto_clear") == S.POLICY_AUTO_CLEAR)
+    check("keep does not clear", not S.clears_snapshots(S.POLICY_KEEP))
+    check("both clearing policies clear",
+          S.clears_snapshots(S.POLICY_AUTO_CLEAR)
+          and S.clears_snapshots(S.POLICY_BACKUP_THEN_CLEAR))
+    check("only backup_then_clear copies first",
+          S.backs_up_first(S.POLICY_BACKUP_THEN_CLEAR)
+          and not S.backs_up_first(S.POLICY_AUTO_CLEAR))
+
+    check("campaign-backup default is on",
+          B.DEFAULT_CAMPAIGN_BACKUP == B.CAMPAIGN_BACKUP_ON
+          and B.campaign_backup_enabled(None))
+    check("campaign-backup off is respected",
+          not B.campaign_backup_enabled(B.CAMPAIGN_BACKUP_OFF))
+    check("campaign-backup labels round-trip",
+          all(B.campaign_backup_from_label(B.campaign_backup_label(p)) == p
+              for p in B.CAMPAIGN_BACKUP_IDS))
+    check("snapshot labels round-trip",
+          all(S.policy_from_label(S.policy_label(p)) == p for p in S.POLICY_IDS))
+
+    # Vocabulary: snapshot wording must not call it a 備份, and the campaign
+    # policy must not call itself a 快照.
+    snap_text = " ".join(S.policy_label(p) + S.policy_hint(p) for p in S.POLICY_IDS)
+    check("snapshot labels never say 存檔備份", "存檔備份" not in snap_text)
+    check("snapshot labels say 快照", "快照" in snap_text)
+    camp_text = " ".join(B.campaign_backup_label(p) + B.campaign_backup_hint(p)
+                         for p in B.CAMPAIGN_BACKUP_IDS)
+    check("campaign-backup labels never say 快照", "快照" not in camp_text)
+    check("every policy has a hint",
+          all(S.policy_hint(p) for p in S.POLICY_IDS)
+          and all(B.campaign_backup_hint(p) for p in B.CAMPAIGN_BACKUP_IDS))
+
+
 def main():
+    test_policies()
     with tempfile.TemporaryDirectory(prefix="sm_restore_") as td:
         tmp = Path(td)
         test_round_trip(tmp / "t1")

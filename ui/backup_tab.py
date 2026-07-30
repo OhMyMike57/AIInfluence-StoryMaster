@@ -1,7 +1,7 @@
 """Backup Center tab.
 
 Lists every backup the tool knows about (campaign saves, cleared-database
-snapshots, tool-config backups and the mod's save_snapshots) in one searchable
+snapshots, tool-config backups and the mod's save snapshots) in one searchable
 table, and lets the user open / rename / annotate / restore / delete each one.
 All data logic lives in ``services.backup_service``; this module is the view +
 interaction layer.
@@ -26,13 +26,13 @@ from dialogs.restore_confirm_dialog import open_restore_confirm_dialog
 def _filter_options():
     return [(tr("全部類型"), ""), (tr("戰役備份"), bks.KIND_CAMPAIGN),
             (tr("資料庫備份"), bks.KIND_DB), (tr("工具設定"), bks.KIND_CONFIG),
-            (tr("存檔備份"), bks.KIND_SNAPSHOT)]
+            (tr("存檔快照"), bks.KIND_SNAPSHOT)]
 
 
 def _kind_col_label(kind: str) -> str:
     return {bks.KIND_CAMPAIGN: tr("戰役"), bks.KIND_DB: tr("資料庫"),
             bks.KIND_CONFIG: tr("工具設定"),
-            bks.KIND_SNAPSHOT: tr("存檔備份")}.get(kind, kind)
+            bks.KIND_SNAPSHOT: tr("存檔快照")}.get(kind, kind)
 
 
 def _fmt_size(n: Optional[int]) -> str:
@@ -68,7 +68,7 @@ def build_backup_tab(app, notebook: ttk.Notebook) -> None:
 
     ttk.Label(bar, text=tr("類型")).pack(side=tk.LEFT)
     app._backup_filter_var = tk.StringVar(value=_filter_options()[0][0])
-    ttk.Combobox(bar, textvariable=app._backup_filter_var, state="readonly", width=10,
+    ttk.Combobox(bar, textvariable=app._backup_filter_var, state="readonly", width=15,
                  values=[d for d, _ in _filter_options()]).pack(side=tk.LEFT, padx=(2, 8))
     _fc = bar.winfo_children()[-1]
     _fc.bind("<<ComboboxSelected>>", lambda e: refresh_backup_center(app))
@@ -110,7 +110,8 @@ def build_backup_tab(app, notebook: ttk.Notebook) -> None:
         "kind": tr("類型"), "name": tr("資料夾名稱"), "campaign": tr("戰役名稱"),
         "time": tr("時間"), "size": tr("大小"), "note": tr("備註"),
     }
-    widths = {"kind": 70, "name": 240, "campaign": 170, "time": 150, "size": 80, "note": 200}
+    # kind holds "存檔快照" / "Save snapshot" — 70px clipped the English label.
+    widths = {"kind": 116, "name": 240, "campaign": 170, "time": 150, "size": 80, "note": 200}
     tree = ttk.Treeview(body, columns=cols, show="headings", selectmode="browse")
     for c in cols:
         tree.heading(c, text=headings[c])
