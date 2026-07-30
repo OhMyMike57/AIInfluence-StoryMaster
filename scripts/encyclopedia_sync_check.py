@@ -114,12 +114,24 @@ def main():
     i_exact = body.find("map.TryGetValue")
     i_xml = body.find("xml.TryGetValue")
     i_dead = body.find("hero.IsDead")
-    i_regen = body.find("SetHeroEncyclopediaTextAndLinks")
+    # "cleared++" rather than TextObject.GetEmpty(): tier 1 also writes an empty
+    # TextObject (for a recorded original that was itself empty), so the bare call
+    # is not a marker for tier 3.
+    i_clear = body.find("cleared++")
     check("tier 1 (recorded original) comes first", 0 <= i_exact < i_xml)
-    check("tier 2 (module XML) comes second", i_xml < i_regen)
-    check("dead-hero guard precedes regeneration", 0 <= i_dead < i_regen)
+    check("tier 2 (module XML) comes second", 0 <= i_xml < i_clear)
+    check("dead-hero guard precedes the clear", 0 <= i_dead < i_clear)
     check("guard skips rather than writes",
           re.search(r"if\s*\(hero\.IsDead\)\s*\{\s*skipped\+\+;\s*continue;", body) is not None)
+
+    # Tier 3 must CLEAR the field, never store the game's template. That template
+    # resolves {LORD.FIRSTNAME} / {CLAN_NAME} / {REPUTATION} against *global* text
+    # variables set moments earlier, so persisting it renders as
+    # "is a member of the , . … is a person." — the reported bug. The game itself
+    # calls the generator and discards the result.
+    check("tier 3 clears the field", i_clear > 0)
+    check("tier 3 never persists the game's template",
+          "SetHeroEncyclopediaTextAndLinks" not in _strip_cs_comments(sync))
     check("restore clears the changed-since filter", "LastSync.Clear()" in body)
     check("capture stores only the first value per hero",
           "map.ContainsKey(id)" in _method_body(sync, "CaptureOriginal"))
@@ -206,6 +218,37 @@ def main():
     check(f"corpus has character files ({files})", files > 0)
     for f in FIELDS:
         check(f"{f} present in real data ({seen[f]} files)", seen[f] > 0)
+
+
+def _strip_cs_comments(text):
+    """Blank out C# comments, keeping string literals intact.
+
+    Needed for "this symbol is not used" assertions: the docstrings explain *why*
+    a call was removed, and naming it there must not read as still calling it.
+    """
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '"':
+            j = i + 1
+            while j < n and text[j] != '"':
+                if text[j] == "\\":
+                    j += 1
+                if text[j:j + 1] == "\n":
+                    break
+                j += 1
+            out.append(text[i:j + 1])
+            i = j + 1
+        elif text.startswith("//", i):
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def _method_body(src, name):

@@ -443,12 +443,29 @@ namespace AIInfluenceStoryMaster
         ///      Influence had already written before Story Master was installed;
         ///   2. the <c>text=</c> attribute from a module's XML — recovers the
         ///      hand-written background of pre-authored heroes;
-        ///   3. <c>Hero.SetHeroEncyclopediaTextAndLinks</c> — the game's own
-        ///      generated sentence, for heroes that never had authored text.
+        ///   3. <b>empty</b> — the authentic state of a hero that never had authored
+        ///      text, which is most of them.
+        ///
+        /// Tier 3 clears the field rather than filling it, and that is deliberate:
+        ///
+        /// * <c>Hero.Deserialize</c> sets <c>EncyclopediaText</c> to
+        ///   <c>TextObject.GetEmpty()</c> for every hero whose XML has no
+        ///   <c>text=</c> attribute — empty *is* the original value;
+        /// * nothing in the game reads <c>EncyclopediaText</c> to display it. The
+        ///   sentence a vanilla page shows ("… is a member of the …") is produced by
+        ///   the encyclopedia's own view model at render time, which is why an empty
+        ///   field still shows a proper description;
+        /// * <c>Hero.SetHeroEncyclopediaTextAndLinks</c> looks like the way to
+        ///   reproduce that sentence, but it returns a template whose
+        ///   <c>{LORD.FIRSTNAME}</c> / <c>{CLAN_NAME}</c> / <c>{REPUTATION}</c>
+        ///   placeholders resolve against *global* text variables set moments
+        ///   earlier. Stored and rendered later, they resolve to nothing — giving
+        ///   "is a member of the , . … is a person." The game itself calls that
+        ///   method and throws the result away, which is the tell.
         ///
         /// Dead heroes are skipped past tier 2 on purpose: the game replaces their
         /// page with an obituary (<c>KillCharacterAction.CreateObituary</c>), and
-        /// regenerating the living-hero template would erase it.
+        /// clearing the field would erase it.
         /// </summary>
         /// <returns>Pages restored, or -1 when the restore could not run.</returns>
         public static int RestoreOriginals()
@@ -460,7 +477,7 @@ namespace AIInfluenceStoryMaster
                 var heroes = BuildHeroIndex();
                 var xml = XmlEncyclopediaText.Load();
 
-                int exact = 0, fromXml = 0, regenerated = 0, skipped = 0, discarded = 0;
+                int exact = 0, fromXml = 0, cleared = 0, skipped = 0, discarded = 0;
                 var stale = new List<string>();   // records that were our own layout
                 foreach (var kv in heroes)
                 {
@@ -500,19 +517,15 @@ namespace AIInfluenceStoryMaster
                             continue;
                         }
 
-                        // No record and no authored text. Regenerating is safe for the
-                        // living; for the dead it would overwrite their obituary.
+                        // No record and no authored text → the original was empty.
+                        // Safe for the living; for the dead it would wipe the obituary.
                         if (hero.IsDead)
                         {
                             skipped++;
                             continue;
                         }
-                        TextObject gen = Hero.SetHeroEncyclopediaTextAndLinks(hero);
-                        if (gen != null)
-                        {
-                            hero.EncyclopediaText = gen;
-                            regenerated++;
-                        }
+                        hero.EncyclopediaText = TextObject.GetEmpty();
+                        cleared++;
                     }
                     catch (Exception exHero)
                     {
@@ -534,12 +547,13 @@ namespace AIInfluenceStoryMaster
                 // since" filter would leave the restored pages in place while the
                 // character files still hold the persona we just stopped showing.
                 LastSync.Clear();
-                FileContract.Log("EncyclopediaSync: restored " + (exact + fromXml + regenerated)
+                FileContract.Log("EncyclopediaSync: restored " + (exact + fromXml + cleared)
                                  + " page(s) — " + exact + " exact, " + fromXml + " from XML, "
-                                 + regenerated + " regenerated, " + skipped + " skipped (dead, no record)"
+                                 + cleared + " cleared to the game default, "
+                                 + skipped + " skipped (dead, no record)"
                                  + (discarded > 0 ? ", " + discarded + " stale record(s) dropped" : "")
                                  + ".");
-                return exact + fromXml + regenerated;
+                return exact + fromXml + cleared;
             }
             catch (Exception ex)
             {

@@ -47,7 +47,7 @@
     <string id="StoryMaster_EncSpeech_H" text="角色的說話方式——語速、用詞、態度等。約增加 180 字。[ 預設：關 ]" />
     <string id="StoryMaster_EncRestore" text="還原為原生頁面" />
     <string id="StoryMaster_EncRestore_C" text="還原" />
-    <string id="StoryMaster_EncRestore_H" text="把故事大師改寫過的百科頁面還原回原本的內容：有記錄到改寫前原文的用原文，模組 XML 中有預先寫好背景故事的用該文本，其餘由遊戲重新生成原版文字。已死亡的角色會保留訃聞。需在戰役載入中才有效。" />
+    <string id="StoryMaster_EncRestore_H" text="把故事大師改寫過的百科頁面還原回原本的內容：有記錄到改寫前原文的用原文，模組 XML 中有預先寫好背景故事的用該文本，其餘清空——那正是未被改寫過的角色的狀態，讓遊戲自行描述該角色。已死亡的角色會保留訃聞。需在戰役載入中才有效。" />
     <string id="StoryMaster_Msg_EncRestored" text="故事大師：已還原 {COUNT} 個百科頁面" />
     <string id="StoryMaster_Enc_Cognitive" text="— 認知風格 —" />
     <string id="StoryMaster_Enc_Speech" text="— 語言癖好 —" />

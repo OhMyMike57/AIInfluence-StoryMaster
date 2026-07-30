@@ -108,7 +108,7 @@ namespace AIInfluenceStoryMaster.Settings
 
         [SettingPropertyButton("{=StoryMaster_EncRestore}Restore original pages", Order = 21,
             RequireRestart = false, Content = "{=StoryMaster_EncRestore_C}Restore",
-            HintText = "{=StoryMaster_EncRestore_H}Put every encyclopedia page Story Master rewrote back to what it was: the exact original where one was recorded before the first overwrite, the hand-written text from the module XML where there is one, otherwise the game's own generated text. Dead characters keep their obituary. Only works while a campaign is loaded.")]
+            HintText = "{=StoryMaster_EncRestore_H}Put every encyclopedia page Story Master rewrote back to what it was: the exact original where one was recorded before the first overwrite, the hand-written text from the module XML where there is one, otherwise cleared — which is what an untouched character has, and lets the game describe them itself. Dead characters keep their obituary. Only works while a campaign is loaded.")]
         [SettingPropertyGroup(GEnc)]
         public Action RestoreEncyclopediaNow { get; set; } = ExportActions.RestoreEncyclopediaNow;
 
